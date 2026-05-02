@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axolotl Evolution — 1000 Years</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap');
+:root {
+  --bg:#f7f4ef; --surface:#fff; --border:#e0dbd2;
+  --text:#1a1814; --muted:#9a9288;
+  --accent:#2d6a4f; --accent-light:#d8ede3;
+  --red:#c0392b; --red-light:#faeae8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-weight:300;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+.sim-title{font-family:'DM Serif Display',serif;font-size:17px;}
+.sim-title em{font-style:italic;color:var(--accent);}
+.top-stats{display:flex;gap:28px;}
+.top-stat{text-align:center;}
+.ts-label{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);display:block;margin-bottom:1px;}
+.ts-val{font-family:'DM Serif Display',serif;font-size:20px;line-height:1;}
+.ts-val.accent{color:var(--accent);}
+#main{display:grid;grid-template-columns:210px 1fr 210px;flex:1;overflow:hidden;min-height:0;}
+.side-panel{border-right:1px solid var(--border);padding:14px 12px;overflow-y:auto;background:var(--surface);display:flex;flex-direction:column;gap:12px;}
+.side-panel.right{border-right:none;border-left:1px solid var(--border);}
+.side-panel::-webkit-scrollbar{width:3px;}
+.side-panel::-webkit-scrollbar-thumb{background:var(--border);}
+.panel-title{font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);padding-bottom:5px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.trait-name{font-size:10px;font-weight:500;margin-bottom:4px;letter-spacing:.03em;}
+.bar-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
+.bar-label{font-size:8px;color:var(--muted);width:62px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1);}
+.bar-pct{font-size:8px;color:var(--muted);width:26px;text-align:right;flex-shrink:0;}
+#center{display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+#canvas-wrap{flex:1;position:relative;overflow:hidden;}
+#sim-canvas{display:block;width:100%;height:100%;}
+#year-overlay{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-family:'DM Serif Display',serif;font-size:80px;color:rgba(45,106,79,.07);pointer-events:none;user-select:none;line-height:1;white-space:nowrap;}
+#event-banner{margin:0 16px 10px;padding:9px 12px;border-radius:5px;border-left:3px solid var(--border);font-size:10px;line-height:1.5;min-height:40px;display:flex;align-items:center;gap:8px;transition:background .4s,border-color .4s,color .4s;color:var(--muted);background:transparent;}
+#event-banner.active{background:var(--red-light);border-color:var(--red);color:var(--red);}
+.ev-name{font-weight:500;letter-spacing:.03em;white-space:nowrap;}
+#pause-overlay{position:absolute;inset:0;background:rgba(247,244,239,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(2px);}
+#pause-overlay.visible{opacity:1;pointer-events:all;}
+.po-name{font-family:'DM Serif Display',serif;font-size:24px;color:var(--red);text-align:center;padding:0 24px;}
+.po-desc{font-size:11px;color:var(--text);text-align:center;max-width:360px;line-height:1.65;padding:0 24px;}
+.po-year{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;}
+.pause-continue{font-family:'DM Mono',monospace;font-size:10px;background:var(--accent);color:#fff;border:none;border-radius:4px;padding:7px 22px;cursor:pointer;letter-spacing:.06em;margin-top:2px;transition:opacity .15s;}
+.pause-continue:hover{opacity:.85;}
+#timeline{padding:8px 16px 12px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+.tl-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.tl-label{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;}
+.controls{display:flex;gap:6px;align-items:center;}
+.btn{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.06em;background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 10px;cursor:pointer;border-radius:4px;transition:all .15s;}
+.btn:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+.btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.ev-tick-layer{position:relative;height:10px;margin-bottom:2px;}
+.ev-tick{position:absolute;top:2px;bottom:2px;width:1px;background:var(--border);transform:translateX(-50%);cursor:pointer;}
+.ev-tick.done{background:var(--accent);opacity:.5;}
+.ev-tick.now{background:var(--red);opacity:.9;}
+.ev-tick::after{content:'';position:absolute;top:-1px;left:-2px;width:5px;height:5px;background:var(--muted);border-radius:50%;}
+.ev-tick.done::after{background:var(--accent);}
+.ev-tick.now::after{background:var(--red);}
+input[type=range]{-webkit-appearance:none;width:100%;height:2px;background:var(--border);border-radius:1px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:var(--accent);border:2px solid var(--surface);border-radius:50%;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.12);}
+.tl-years{display:flex;justify-content:space-between;margin-top:3px;}
+.tl-yr{font-size:8px;color:var(--muted);}
+.mini-chart{display:block;width:100%;height:56px;}
+.event-list{display:flex;flex-direction:column;gap:3px;}
+.ev-item{display:flex;gap:6px;align-items:flex-start;padding:3px 5px;border-radius:3px;cursor:pointer;transition:background .12s;}
+.ev-item:hover{background:var(--accent-light);}
+.ev-yr{font-size:8px;font-weight:500;color:var(--muted);width:28px;flex-shrink:0;padding-top:1px;}
+.ev-nm{font-size:8px;color:var(--muted);line-height:1.4;}
+.ev-item.done .ev-yr{color:var(--accent);}
+.ev-item.done .ev-nm{color:var(--text);}
+.ev-item.now{background:var(--red-light);}
+.ev-item.now .ev-yr,.ev-item.now .ev-nm{color:var(--red);}
+
+/* Results screen */
+#results-screen{position:fixed;inset:0;background:var(--bg);z-index:1000;display:none;flex-direction:column;overflow:hidden;}
+#results-screen.visible{display:flex;}
+.results-header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.results-title{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);}
+.results-title em{font-style:italic;color:var(--accent);}
+.results-subtitle{font-size:9px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:2px;}
+.results-close{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.06em;background:transparent;border:1px solid var(--border);color:var(--text);padding:5px 14px;cursor:pointer;border-radius:4px;transition:all .15s;}
+.results-close:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+.results-body{flex:1;overflow-y:auto;padding:24px 32px;display:flex;flex-direction:column;gap:28px;}
+.results-body::-webkit-scrollbar{width:4px;}
+.results-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.results-pop-section{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px;}
+.rs-title{font-family:'DM Serif Display',serif;font-size:15px;color:var(--text);margin-bottom:4px;}
+.rs-sub{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;}
+.results-traits-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+.rt-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 18px;}
+.rt-card-title{font-size:10px;font-weight:500;color:var(--text);margin-bottom:10px;letter-spacing:.03em;}
+.rt-row{display:flex;align-items:center;gap:0;margin-bottom:5px;}
+.rt-label{font-size:8px;color:var(--muted);width:70px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rt-bars{flex:1;display:flex;flex-direction:column;gap:2px;}
+.rt-bar-wrap{display:flex;align-items:center;gap:4px;}
+.rt-bar-track{flex:1;height:5px;background:var(--border);border-radius:2px;overflow:hidden;position:relative;}
+.rt-bar-fill{height:100%;border-radius:2px;}
+.rt-bar-fill.start{opacity:.35;}
+.rt-bar-fill.end{opacity:1;}
+.rt-pct{font-size:7px;color:var(--muted);width:24px;text-align:right;flex-shrink:0;}
+.rt-change{font-size:7px;width:28px;text-align:right;flex-shrink:0;}
+.rt-change.up{color:var(--accent);}
+.rt-change.dn{color:var(--red);}
+.rt-change.fl{color:var(--muted);}
+.rt-legend{display:flex;gap:10px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.rt-legend-item{display:flex;align-items:center;gap:4px;font-size:7px;color:var(--muted);}
+.rt-legend-swatch{width:16px;height:4px;border-radius:2px;}
+.results-events-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.rev-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+.rev-year{font-size:9px;color:var(--muted);letter-spacing:.1em;margin-bottom:3px;}
+.rev-name{font-family:'DM Serif Display',serif;font-size:13px;color:var(--red);margin-bottom:5px;}
+.rev-desc{font-size:8px;color:var(--muted);line-height:1.55;}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="sim-title">Axolotl Evolution &mdash; <em>Ambystoma mexicanum</em></div>
+  <div class="top-stats">
+    <div class="top-stat"><span class="ts-label">Year</span><span class="ts-val accent" id="h-year">0</span></div>
+    <div class="top-stat"><span class="ts-label">Population</span><span class="ts-val" id="h-pop">500</span></div>
+    <div class="top-stat"><span class="ts-label">Events</span><span class="ts-val" id="h-ev">0 / 9</span></div>
+  </div>
+  <div style="font-size:9px;color:var(--muted);letter-spacing:.1em">LAKE XOCHIMILCO &middot; 8 TRAITS</div>
+</div>
+<div id="main">
+  <div class="side-panel" id="left-panel"><span class="panel-title">Genetic Traits</span></div>
+  <div id="center">
+    <div id="canvas-wrap">
+      <canvas id="sim-canvas"></canvas>
+      <div id="year-overlay">0</div>
+      <div id="pause-overlay">
+        <span class="po-year" id="po-year"></span>
+        <div class="po-name" id="po-name"></div>
+        <div class="po-desc" id="po-desc"></div>
+        <button class="pause-continue" id="po-btn">Continue &rarr;</button>
+      </div>
+    </div>
+    <div id="event-banner">Simulation initialized. Baseline population of 500 axolotls established.</div>
+    <div id="timeline">
+      <div class="tl-top">
+        <span class="tl-label">Timeline</span>
+        <div class="controls">
+          <button class="btn" id="playBtn">Play</button>
+          <button class="btn" id="resetBtn">Reset</button>
+          <button class="btn" id="speedBtn">1x</button>
+        </div>
+      </div>
+      <div class="ev-tick-layer" id="evTicks"></div>
+      <input type="range" id="yearSlider" min="0" max="100" value="0">
+      <div class="tl-years"><span class="tl-yr">0</span><span class="tl-yr">250</span><span class="tl-yr">500</span><span class="tl-yr">750</span><span class="tl-yr">1000</span></div>
+    </div>
+  </div>
+  <div class="side-panel right" id="right-panel">
+    <span class="panel-title">More Traits</span>
+    <div id="right-traits"></div>
+    <span class="panel-title" style="margin-top:4px">Population</span>
+    <canvas class="mini-chart" id="popChart"></canvas>
+    <span class="panel-title" style="margin-top:4px">Selection Events</span>
+    <div class="event-list" id="eventList"></div>
+  </div>
+</div>
+<!-- Results screen -->
+<div id="results-screen">
+  <div class="results-header">
+    <div>
+      <div class="results-title">1,000 Years of Evolution &mdash; <em>Final Report</em></div>
+      <div class="results-subtitle">Year 0 vs Year 1000 &middot; All Traits &middot; All Selection Events</div>
+    </div>
+    <button class="results-close" id="resultsClose">Back to Simulation</button>
+  </div>
+  <div class="results-body" id="resultsBody"></div>
+</div>
+
+<script>
+const SIM_DATA = [{"year":0,"population_size":500,"distribution":{"coloration":{"albino":0.092,"leucistic":0.156,"golden":0.194,"dark_brown":0.29,"melanoid":0.268},"regen_speed":{"slow":0.384,"moderate":0.372,"fast":0.19,"ultra_fast":0.054},"gill_size":{"small":0.222,"medium":0.35,"large":0.314,"extra_large":0.114},"body_size":{"tiny":0.086,"small":0.266,"medium":0.384,"large":0.264},"oxygen_affinity":{"low":0.274,"moderate":0.488,"high":0.238},"immune_strength":{"weak":0.404,"moderate":0.382,"strong":0.214},"skin_texture":{"smooth":0.504,"slightly_rough":0.37,"rough":0.126},"tail_power":{"weak":0.27,"moderate":0.464,"powerful":0.266}},"event":null},{"year":10,"population_size":500,"distribution":{"coloration":{"albino":0.106,"leucistic":0.148,"golden":0.192,"dark_brown":0.296,"melanoid":0.258},"regen_speed":{"slow":0.412,"moderate":0.354,"fast":0.188,"ultra_fast":0.046},"gill_size":{"small":0.218,"medium":0.326,"large":0.344,"extra_large":0.112},"body_size":{"tiny":0.092,"small":0.294,"medium":0.356,"large":0.258},"oxygen_affinity":{"low":0.31,"moderate":0.446,"high":0.244},"immune_strength":{"weak":0.432,"moderate":0.39,"strong":0.178},"skin_texture":{"smooth":0.5,"slightly_rough":0.368,"rough":0.132},"tail_power":{"weak":0.316,"moderate":0.438,"powerful":0.246}},"event":null},{"year":20,"population_size":500,"distribution":{"coloration":{"albino":0.12,"leucistic":0.144,"golden":0.194,"dark_brown":0.294,"melanoid":0.248},"regen_speed":{"slow":0.394,"moderate":0.364,"fast":0.182,"ultra_fast":0.06},"gill_size":{"small":0.208,"medium":0.336,"large":0.336,"extra_large":0.12},"body_size":{"tiny":0.082,"small":0.336,"medium":0.32,"large":0.262},"oxygen_affinity":{"low":0.306,"moderate":0.43,"high":0.264},"immune_strength":{"weak":0.426,"moderate":0.368,"strong":0.206},"skin_texture":{"smooth":0.492,"slightly_rough":0.348,"rough":0.16},"tail_power":{"weak":0.336,"moderate":0.428,"powerful":0.236}},"event":null},{"year":30,"population_size":500,"distribution":{"coloration":{"albino":0.112,"leucistic":0.162,"golden":0.198,"dark_brown":0.294,"melanoid":0.234},"regen_speed":{"slow":0.348,"moderate":0.382,"fast":0.192,"ultra_fast":0.078},"gill_size":{"small":0.186,"medium":0.364,"large":0.338,"extra_large":0.112},"body_size":{"tiny":0.084,"small":0.32,"medium":0.304,"large":0.292},"oxygen_affinity":{"low":0.294,"moderate":0.47,"high":0.236},"immune_strength":{"weak":0.424,"moderate":0.37,"strong":0.206},"skin_texture":{"smooth":0.462,"slightly_rough":0.356,"rough":0.182},"tail_power":{"weak":0.346,"moderate":0.392,"powerful":0.262}},"event":null},{"year":40,"population_size":500,"distribution":{"coloration":{"albino":0.102,"leucistic":0.166,"golden":0.212,"dark_brown":0.26,"melanoid":0.26},"regen_speed":{"slow":0.384,"moderate":0.348,"fast":0.186,"ultra_fast":0.082},"gill_size":{"small":0.16,"medium":0.374,"large":0.336,"extra_large":0.13},"body_size":{"tiny":0.102,"small":0.294,"medium":0.332,"large":0.272},"oxygen_affinity":{"low":0.296,"moderate":0.496,"high":0.208},"immune_strength":{"weak":0.414,"moderate":0.366,"strong":0.22},"skin_texture":{"smooth":0.478,"slightly_rough":0.33,"rough":0.192},"tail_power":{"weak":0.388,"moderate":0.356,"powerful":0.256}},"event":null},{"year":50,"population_size":500,"distribution":{"coloration":{"albino":0.094,"leucistic":0.162,"golden":0.22,"dark_brown":0.302,"melanoid":0.222},"regen_speed":{"slow":0.396,"moderate":0.326,"fast":0.196,"ultra_fast":0.082},"gill_size":{"small":0.184,"medium":0.35,"large":0.336,"extra_large":0.13},"body_size":{"tiny":0.112,"small":0.298,"medium":0.32,"large":0.27},"oxygen_affinity":{"low":0.322,"moderate":0.462,"high":0.216},"immune_strength":{"weak":0.384,"moderate":0.384,"strong":0.232},"skin_texture":{"smooth":0.484,"slightly_rough":0.318,"rough":0.198},"tail_power":{"weak":0.406,"moderate":0.336,"powerful":0.258}},"event":null},{"year":60,"population_size":500,"distribution":{"coloration":{"albino":0.072,"leucistic":0.148,"golden":0.246,"dark_brown":0.298,"melanoid":0.236},"regen_speed":{"slow":0.366,"moderate":0.332,"fast":0.21,"ultra_fast":0.092},"gill_size":{"small":0.202,"medium":0.328,"large":0.352,"extra_large":0.118},"body_size":{"tiny":0.13,"small":0.286,"medium":0.314,"large":0.27},"oxygen_affinity":{"low":0.326,"moderate":0.458,"high":0.216},"immune_strength":{"weak":0.346,"moderate":0.402,"strong":0.252},"skin_texture":{"smooth":0.524,"slightly_rough":0.298,"rough":0.178},"tail_power":{"weak":0.378,"moderate":0.362,"powerful":0.26}},"event":null},{"year":70,"population_size":500,"distribution":{"coloration":{"albino":0.086,"leucistic":0.148,"golden":0.206,"dark_brown":0.308,"melanoid":0.252},"regen_speed":{"slow":0.368,"moderate":0.314,"fast":0.216,"ultra_fast":0.102},"gill_size":{"small":0.194,"medium":0.332,"large":0.334,"extra_large":0.14},"body_size":{"tiny":0.124,"small":0.262,"medium":0.306,"large":0.308},"oxygen_affinity":{"low":0.348,"moderate":0.452,"high":0.2},"immune_strength":{"weak":0.31,"moderate":0.434,"strong":0.256},"skin_texture":{"smooth":0.55,"slightly_rough":0.286,"rough":0.164},"tail_power":{"weak":0.42,"moderate":0.308,"powerful":0.272}},"event":null},{"year":80,"population_size":500,"distribution":{"coloration":{"albino":0.104,"leucistic":0.112,"golden":0.19,"dark_brown":0.306,"melanoid":0.288},"regen_speed":{"slow":0.358,"moderate":0.336,"fast":0.202,"ultra_fast":0.104},"gill_size":{"small":0.208,"medium":0.32,"large":0.308,"extra_large":0.164},"body_size":{"tiny":0.108,"small":0.29,"medium":0.282,"large":0.32},"oxygen_affinity":{"low":0.344,"moderate":0.462,"high":0.194},"immune_strength":{"weak":0.324,"moderate":0.422,"strong":0.254},"skin_texture":{"smooth":0.568,"slightly_rough":0.276,"rough":0.156},"tail_power":{"weak":0.412,"moderate":0.312,"powerful":0.276}},"event":null},{"year":90,"population_size":500,"distribution":{"coloration":{"albino":0.044,"leucistic":0.074,"golden":0.122,"dark_brown":0.378,"melanoid":0.382},"regen_speed":{"slow":0.39,"moderate":0.314,"fast":0.21,"ultra_fast":0.086},"gill_size":{"small":0.208,"medium":0.316,"large":0.304,"extra_large":0.172},"body_size":{"tiny":0.098,"small":0.264,"medium":0.336,"large":0.302},"oxygen_affinity":{"low":0.348,"moderate":0.46,"high":0.192},"immune_strength":{"weak":0.32,"moderate":0.438,"strong":0.242},"skin_texture":{"smooth":0.54,"slightly_rough":0.28,"rough":0.18},"tail_power":{"weak":0.418,"moderate":0.282,"powerful":0.3}},"event":{"name":"Predator Incursion","description":"A new predatory fish with sharp color vision enters the lake. Brighter-colored axolotls are hunted preferentially."}},{"year":100,"population_size":500,"distribution":{"coloration":{"albino":0.066,"leucistic":0.078,"golden":0.124,"dark_brown":0.364,"melanoid":0.368},"regen_speed":{"slow":0.404,"moderate":0.336,"fast":0.182,"ultra_fast":0.078},"gill_size":{"small":0.228,"medium":0.312,"large":0.31,"extra_large":0.15},"body_size":{"tiny":0.082,"small":0.3,"medium":0.326,"large":0.292},"oxygen_affinity":{"low":0.354,"moderate":0.452,"high":0.194},"immune_strength":{"weak":0.302,"moderate":0.456,"strong":0.242},"skin_texture":{"smooth":0.534,"slightly_rough":0.288,"rough":0.178},"tail_power":{"weak":0.42,"moderate":0.278,"powerful":0.302}},"event":null},{"year":110,"population_size":500,"distribution":{"coloration":{"albino":0.07,"leucistic":0.074,"golden":0.148,"dark_brown":0.334,"melanoid":0.374},"regen_speed":{"slow":0.382,"moderate":0.362,"fast":0.164,"ultra_fast":0.092},"gill_size":{"small":0.246,"medium":0.284,"large":0.36,"extra_large":0.11},"body_size":{"tiny":0.084,"small":0.266,"medium":0.364,"large":0.286},"oxygen_affinity":{"low":0.36,"moderate":0.44,"high":0.2},"immune_strength":{"weak":0.316,"moderate":0.428,"strong":0.256},"skin_texture":{"smooth":0.54,"slightly_rough":0.274,"rough":0.186},"tail_power":{"weak":0.422,"moderate":0.294,"powerful":0.284}},"event":null},{"year":120,"population_size":500,"distribution":{"coloration":{"albino":0.078,"leucistic":0.078,"golden":0.152,"dark_brown":0.316,"melanoid":0.376},"regen_speed":{"slow":0.344,"moderate":0.37,"fast":0.166,"ultra_fast":0.12},"gill_size":{"small":0.244,"medium":0.298,"large":0.342,"extra_large":0.116},"body_size":{"tiny":0.088,"small":0.246,"medium":0.374,"large":0.292},"oxygen_affinity":{"low":0.362,"moderate":0.446,"high":0.192},"immune_strength":{"weak":0.292,"moderate":0.412,"strong":0.296},"skin_texture":{"smooth":0.544,"slightly_rough":0.27,"rough":0.186},"tail_power":{"weak":0.396,"moderate":0.318,"powerful":0.286}},"event":null},{"year":130,"population_size":500,"distribution":{"coloration":{"albino":0.072,"leucistic":0.098,"golden":0.16,"dark_brown":0.33,"melanoid":0.34},"regen_speed":{"slow":0.298,"moderate":0.372,"fast":0.18,"ultra_fast":0.15},"gill_size":{"small":0.244,"medium":0.306,"large":0.332,"extra_large":0.118},"body_size":{"tiny":0.116,"small":0.25,"medium":0.372,"large":0.262},"oxygen_affinity":{"low":0.394,"moderate":0.428,"high":0.178},"immune_strength":{"weak":0.29,"moderate":0.43,"strong":0.28},"skin_texture":{"smooth":0.534,"slightly_rough":0.28,"rough":0.186},"tail_power":{"weak":0.396,"moderate":0.308,"powerful":0.296}},"event":null},{"year":140,"population_size":500,"distribution":{"coloration":{"albino":0.076,"leucistic":0.126,"golden":0.18,"dark_brown":0.3,"melanoid":0.318},"regen_speed":{"slow":0.294,"moderate":0.382,"fast":0.174,"ultra_fast":0.15},"gill_size":{"small":0.26,"medium":0.306,"large":0.296,"extra_large":0.138},"body_size":{"tiny":0.132,"small":0.256,"medium":0.368,"large":0.244},"oxygen_affinity":{"low":0.386,"moderate":0.41,"high":0.204},"immune_strength":{"weak":0.3,"moderate":0.422,"strong":0.278},"skin_texture":{"smooth":0.512,"slightly_rough":0.278,"rough":0.21},"tail_power":{"weak":0.386,"moderate":0.298,"powerful":0.316}},"event":null},{"year":150,"population_size":500,"distribution":{"coloration":{"albino":0.094,"leucistic":0.13,"golden":0.17,"dark_brown":0.272,"melanoid":0.334},"regen_speed":{"slow":0.284,"moderate":0.374,"fast":0.182,"ultra_fast":0.16},"gill_size":{"small":0.288,"medium":0.302,"large":0.272,"extra_large":0.138},"body_size":{"tiny":0.146,"small":0.244,"medium":0.348,"large":0.262},"oxygen_affinity":{"low":0.414,"moderate":0.402,"high":0.184},"immune_strength":{"weak":0.286,"moderate":0.434,"strong":0.28},"skin_texture":{"smooth":0.456,"slightly_rough":0.304,"rough":0.24},"tail_power":{"weak":0.398,"moderate":0.3,"powerful":0.302}},"event":null},{"year":160,"population_size":500,"distribution":{"coloration":{"albino":0.088,"leucistic":0.14,"golden":0.168,"dark_brown":0.286,"melanoid":0.318},"regen_speed":{"slow":0.27,"moderate":0.386,"fast":0.194,"ultra_fast":0.15},"gill_size":{"small":0.234,"medium":0.302,"large":0.296,"extra_large":0.168},"body_size":{"tiny":0.152,"small":0.25,"medium":0.332,"large":0.266},"oxygen_affinity":{"low":0.396,"moderate":0.444,"high":0.16},"immune_strength":{"weak":0.254,"moderate":0.434,"strong":0.312},"skin_texture":{"smooth":0.452,"slightly_rough":0.312,"rough":0.236},"tail_power":{"weak":0.442,"moderate":0.298,"powerful":0.26}},"event":null},{"year":170,"population_size":500,"distribution":{"coloration":{"albino":0.114,"leucistic":0.164,"golden":0.146,"dark_brown":0.274,"melanoid":0.302},"regen_speed":{"slow":0.23,"moderate":0.382,"fast":0.212,"ultra_fast":0.176},"gill_size":{"small":0.208,"medium":0.316,"large":0.294,"extra_large":0.182},"body_size":{"tiny":0.162,"small":0.224,"medium":0.31,"large":0.304},"oxygen_affinity":{"low":0.396,"moderate":0.412,"high":0.192},"immune_strength":{"weak":0.26,"moderate":0.436,"strong":0.304},"skin_texture":{"smooth":0.434,"slightly_rough":0.348,"rough":0.218},"tail_power":{"weak":0.428,"moderate":0.28,"powerful":0.292}},"event":null},{"year":180,"population_size":500,"distribution":{"coloration":{"albino":0.134,"leucistic":0.116,"golden":0.17,"dark_brown":0.292,"melanoid":0.288},"regen_speed":{"slow":0.238,"moderate":0.396,"fast":0.21,"ultra_fast":0.156},"gill_size":{"small":0.218,"medium":0.308,"large":0.29,"extra_large":0.184},"body_size":{"tiny":0.184,"small":0.21,"medium":0.294,"large":0.312},"oxygen_affinity":{"low":0.424,"moderate":0.404,"high":0.172},"immune_strength":{"weak":0.278,"moderate":0.404,"strong":0.318},"skin_texture":{"smooth":0.46,"slightly_rough":0.322,"rough":0.218},"tail_power":{"weak":0.426,"moderate":0.262,"powerful":0.312}},"event":null},{"year":190,"population_size":500,"distribution":{"coloration":{"albino":0.14,"leucistic":0.104,"golden":0.18,"dark_brown":0.296,"melanoid":0.28},"regen_speed":{"slow":0.224,"moderate":0.428,"fast":0.202,"ultra_fast":0.146},"gill_size":{"small":0.208,"medium":0.29,"large":0.262,"extra_large":0.24},"body_size":{"tiny":0.162,"small":0.186,"medium":0.32,"large":0.332},"oxygen_affinity":{"low":0.426,"moderate":0.39,"high":0.184},"immune_strength":{"weak":0.258,"moderate":0.42,"strong":0.322},"skin_texture":{"smooth":0.436,"slightly_rough":0.328,"rough":0.236},"tail_power":{"weak":0.402,"moderate":0.27,"powerful":0.328}},"event":null},{"year":200,"population_size":500,"distribution":{"coloration":{"albino":0.11,"leucistic":0.06,"golden":0.126,"dark_brown":0.318,"melanoid":0.386},"regen_speed":{"slow":0.226,"moderate":0.458,"fast":0.18,"ultra_fast":0.136},"gill_size":{"small":0.19,"medium":0.302,"large":0.292,"extra_large":0.216},"body_size":{"tiny":0.192,"small":0.202,"medium":0.274,"large":0.332},"oxygen_affinity":{"low":0.402,"moderate":0.344,"high":0.254},"immune_strength":{"weak":0.31,"moderate":0.414,"strong":0.276},"skin_texture":{"smooth":0.39,"slightly_rough":0.346,"rough":0.264},"tail_power":{"weak":0.118,"moderate":0.276,"powerful":0.606}},"event":{"name":"Invasive Eel","description":"An invasive eel hunts by movement detection. Dark coloration hides in caves; powerful tails enable escape."}},{"year":210,"population_size":500,"distribution":{"coloration":{"albino":0.114,"leucistic":0.032,"golden":0.14,"dark_brown":0.348,"melanoid":0.366},"regen_speed":{"slow":0.218,"moderate":0.464,"fast":0.182,"ultra_fast":0.136},"gill_size":{"small":0.184,"medium":0.292,"large":0.306,"extra_large":0.218},"body_size":{"tiny":0.218,"small":0.21,"medium":0.278,"large":0.294},"oxygen_affinity":{"low":0.422,"moderate":0.316,"high":0.262},"immune_strength":{"weak":0.286,"moderate":0.434,"strong":0.28},"skin_texture":{"smooth":0.398,"slightly_rough":0.346,"rough":0.256},"tail_power":{"weak":0.106,"moderate":0.282,"powerful":0.612}},"event":null},{"year":220,"population_size":500,"distribution":{"coloration":{"albino":0.134,"leucistic":0.048,"golden":0.146,"dark_brown":0.308,"melanoid":0.364},"regen_speed":{"slow":0.238,"moderate":0.402,"fast":0.2,"ultra_fast":0.16},"gill_size":{"small":0.21,"medium":0.264,"large":0.318,"extra_large":0.208},"body_size":{"tiny":0.222,"small":0.222,"medium":0.254,"large":0.302},"oxygen_affinity":{"low":0.454,"moderate":0.304,"high":0.242},"immune_strength":{"weak":0.306,"moderate":0.416,"strong":0.278},"skin_texture":{"smooth":0.38,"slightly_rough":0.372,"rough":0.248},"tail_power":{"weak":0.11,"moderate":0.294,"powerful":0.596}},"event":null},{"year":230,"population_size":500,"distribution":{"coloration":{"albino":0.126,"leucistic":0.052,"golden":0.16,"dark_brown":0.31,"melanoid":0.352},"regen_speed":{"slow":0.24,"moderate":0.404,"fast":0.19,"ultra_fast":0.166},"gill_size":{"small":0.196,"medium":0.28,"large":0.278,"extra_large":0.246},"body_size":{"tiny":0.226,"small":0.242,"medium":0.234,"large":0.298},"oxygen_affinity":{"low":0.472,"moderate":0.29,"high":0.238},"immune_strength":{"weak":0.288,"moderate":0.422,"strong":0.29},"skin_texture":{"smooth":0.388,"slightly_rough":0.378,"rough":0.234},"tail_power":{"weak":0.116,"moderate":0.288,"powerful":0.596}},"event":null},{"year":240,"population_size":500,"distribution":{"coloration":{"albino":0.136,"leucistic":0.058,"golden":0.182,"dark_brown":0.322,"melanoid":0.302},"regen_speed":{"slow":0.242,"moderate":0.42,"fast":0.196,"ultra_fast":0.142},"gill_size":{"small":0.198,"medium":0.294,"large":0.296,"extra_large":0.212},"body_size":{"tiny":0.234,"small":0.27,"medium":0.222,"large":0.274},"oxygen_affinity":{"low":0.494,"moderate":0.286,"high":0.22},"immune_strength":{"weak":0.298,"moderate":0.426,"strong":0.276},"skin_texture":{"smooth":0.35,"slightly_rough":0.392,"rough":0.258},"tail_power":{"weak":0.16,"moderate":0.262,"powerful":0.578}},"event":null},{"year":250,"population_size":500,"distribution":{"coloration":{"albino":0.128,"leucistic":0.052,"golden":0.18,"dark_brown":0.342,"melanoid":0.298},"regen_speed":{"slow":0.28,"moderate":0.424,"fast":0.15,"ultra_fast":0.146},"gill_size":{"small":0.208,"medium":0.28,"large":0.26,"extra_large":0.252},"body_size":{"tiny":0.248,"small":0.266,"medium":0.214,"large":0.272},"oxygen_affinity":{"low":0.472,"moderate":0.308,"high":0.22},"immune_strength":{"weak":0.328,"moderate":0.426,"strong":0.246},"skin_texture":{"smooth":0.316,"slightly_rough":0.418,"rough":0.266},"tail_power":{"weak":0.178,"moderate":0.256,"powerful":0.566}},"event":null},{"year":260,"population_size":500,"distribution":{"coloration":{"albino":0.11,"leucistic":0.07,"golden":0.16,"dark_brown":0.328,"melanoid":0.332},"regen_speed":{"slow":0.29,"moderate":0.404,"fast":0.146,"ultra_fast":0.16},"gill_size":{"small":0.196,"medium":0.266,"large":0.27,"extra_large":0.268},"body_size":{"tiny":0.262,"small":0.24,"medium":0.206,"large":0.292},"oxygen_affinity":{"low":0.44,"moderate":0.308,"high":0.252},"immune_strength":{"weak":0.324,"moderate":0.414,"strong":0.262},"skin_texture":{"smooth":0.294,"slightly_rough":0.404,"rough":0.302},"tail_power":{"weak":0.17,"moderate":0.268,"powerful":0.562}},"event":null},{"year":270,"population_size":500,"distribution":{"coloration":{"albino":0.112,"leucistic":0.054,"golden":0.17,"dark_brown":0.282,"melanoid":0.382},"regen_speed":{"slow":0.296,"moderate":0.392,"fast":0.144,"ultra_fast":0.168},"gill_size":{"small":0.194,"medium":0.246,"large":0.276,"extra_large":0.284},"body_size":{"tiny":0.23,"small":0.224,"medium":0.198,"large":0.348},"oxygen_affinity":{"low":0.422,"moderate":0.328,"high":0.25},"immune_strength":{"weak":0.312,"moderate":0.402,"strong":0.286},"skin_texture":{"smooth":0.298,"slightly_rough":0.352,"rough":0.35},"tail_power":{"weak":0.182,"moderate":0.294,"powerful":0.524}},"event":null},{"year":280,"population_size":500,"distribution":{"coloration":{"albino":0.116,"leucistic":0.044,"golden":0.178,"dark_brown":0.306,"melanoid":0.356},"regen_speed":{"slow":0.3,"moderate":0.422,"fast":0.13,"ultra_fast":0.148},"gill_size":{"small":0.204,"medium":0.208,"large":0.294,"extra_large":0.294},"body_size":{"tiny":0.234,"small":0.244,"medium":0.194,"large":0.328},"oxygen_affinity":{"low":0.428,"moderate":0.314,"high":0.258},"immune_strength":{"weak":0.288,"moderate":0.436,"strong":0.276},"skin_texture":{"smooth":0.316,"slightly_rough":0.36,"rough":0.324},"tail_power":{"weak":0.182,"moderate":0.29,"powerful":0.528}},"event":null},{"year":290,"population_size":500,"distribution":{"coloration":{"albino":0.096,"leucistic":0.044,"golden":0.196,"dark_brown":0.352,"melanoid":0.312},"regen_speed":{"slow":0.316,"moderate":0.422,"fast":0.126,"ultra_fast":0.136},"gill_size":{"small":0.188,"medium":0.216,"large":0.32,"extra_large":0.276},"body_size":{"tiny":0.27,"small":0.254,"medium":0.186,"large":0.29},"oxygen_affinity":{"low":0.388,"moderate":0.352,"high":0.26},"immune_strength":{"weak":0.284,"moderate":0.436,"strong":0.28},"skin_texture":{"smooth":0.316,"slightly_rough":0.342,"rough":0.342},"tail_power":{"weak":0.134,"moderate":0.312,"powerful":0.554}},"event":null},{"year":300,"population_size":500,"distribution":{"coloration":{"albino":0.118,"leucistic":0.034,"golden":0.212,"dark_brown":0.362,"melanoid":0.274},"regen_speed":{"slow":0.344,"moderate":0.404,"fast":0.124,"ultra_fast":0.128},"gill_size":{"small":0.222,"medium":0.208,"large":0.31,"extra_large":0.26},"body_size":{"tiny":0.248,"small":0.268,"medium":0.206,"large":0.278},"oxygen_affinity":{"low":0.37,"moderate":0.342,"high":0.288},"immune_strength":{"weak":0.284,"moderate":0.446,"strong":0.27},"skin_texture":{"smooth":0.31,"slightly_rough":0.326,"rough":0.364},"tail_power":{"weak":0.16,"moderate":0.34,"powerful":0.5}},"event":null},{"year":310,"population_size":500,"distribution":{"coloration":{"albino":0.098,"leucistic":0.04,"golden":0.254,"dark_brown":0.342,"melanoid":0.266},"regen_speed":{"slow":0.338,"moderate":0.402,"fast":0.132,"ultra_fast":0.128},"gill_size":{"small":0.208,"medium":0.22,"large":0.31,"extra_large":0.262},"body_size":{"tiny":0.238,"small":0.292,"medium":0.21,"large":0.26},"oxygen_affinity":{"low":0.396,"moderate":0.322,"high":0.282},"immune_strength":{"weak":0.286,"moderate":0.42,"strong":0.294},"skin_texture":{"smooth":0.274,"slightly_rough":0.34,"rough":0.386},"tail_power":{"weak":0.146,"moderate":0.392,"powerful":0.462}},"event":null},{"year":320,"population_size":500,"distribution":{"coloration":{"albino":0.12,"leucistic":0.032,"golden":0.226,"dark_brown":0.302,"melanoid":0.32},"regen_speed":{"slow":0.316,"moderate":0.394,"fast":0.154,"ultra_fast":0.136},"gill_size":{"small":0.228,"medium":0.22,"large":0.292,"extra_large":0.26},"body_size":{"tiny":0.044,"small":0.2,"medium":0.302,"large":0.454},"oxygen_affinity":{"low":0.37,"moderate":0.334,"high":0.296},"immune_strength":{"weak":0.132,"moderate":0.452,"strong":0.416},"skin_texture":{"smooth":0.27,"slightly_rough":0.41,"rough":0.32},"tail_power":{"weak":0.126,"moderate":0.45,"powerful":0.424}},"event":{"name":"Algae Bloom","description":"Toxic cyanobacteria spreads through shallow feeding zones. Larger body mass helps process toxins; small individuals perish."}},{"year":330,"population_size":500,"distribution":{"coloration":{"albino":0.134,"leucistic":0.04,"golden":0.228,"dark_brown":0.288,"melanoid":0.31},"regen_speed":{"slow":0.316,"moderate":0.376,"fast":0.16,"ultra_fast":0.148},"gill_size":{"small":0.248,"medium":0.22,"large":0.26,"extra_large":0.272},"body_size":{"tiny":0.046,"small":0.188,"medium":0.32,"large":0.446},"oxygen_affinity":{"low":0.36,"moderate":0.324,"high":0.316},"immune_strength":{"weak":0.134,"moderate":0.504,"strong":0.362},"skin_texture":{"smooth":0.292,"slightly_rough":0.41,"rough":0.298},"tail_power":{"weak":0.136,"moderate":0.454,"powerful":0.41}},"event":null},{"year":340,"population_size":500,"distribution":{"coloration":{"albino":0.124,"leucistic":0.044,"golden":0.232,"dark_brown":0.294,"melanoid":0.306},"regen_speed":{"slow":0.312,"moderate":0.344,"fast":0.186,"ultra_fast":0.158},"gill_size":{"small":0.218,"medium":0.23,"large":0.24,"extra_large":0.312},"body_size":{"tiny":0.066,"small":0.184,"medium":0.31,"large":0.44},"oxygen_affinity":{"low":0.376,"moderate":0.302,"high":0.322},"immune_strength":{"weak":0.144,"moderate":0.46,"strong":0.396},"skin_texture":{"smooth":0.26,"slightly_rough":0.42,"rough":0.32},"tail_power":{"weak":0.136,"moderate":0.46,"powerful":0.404}},"event":null},{"year":350,"population_size":500,"distribution":{"coloration":{"albino":0.132,"leucistic":0.042,"golden":0.224,"dark_brown":0.328,"melanoid":0.274},"regen_speed":{"slow":0.33,"moderate":0.346,"fast":0.188,"ultra_fast":0.136},"gill_size":{"small":0.216,"medium":0.232,"large":0.234,"extra_large":0.318},"body_size":{"tiny":0.092,"small":0.2,"medium":0.334,"large":0.374},"oxygen_affinity":{"low":0.408,"moderate":0.302,"high":0.29},"immune_strength":{"weak":0.154,"moderate":0.454,"strong":0.392},"skin_texture":{"smooth":0.312,"slightly_rough":0.36,"rough":0.328},"tail_power":{"weak":0.15,"moderate":0.436,"powerful":0.414}},"event":null},{"year":360,"population_size":500,"distribution":{"coloration":{"albino":0.112,"leucistic":0.038,"golden":0.244,"dark_brown":0.31,"melanoid":0.296},"regen_speed":{"slow":0.308,"moderate":0.352,"fast":0.202,"ultra_fast":0.138},"gill_size":{"small":0.224,"medium":0.258,"large":0.198,"extra_large":0.32},"body_size":{"tiny":0.1,"small":0.212,"medium":0.302,"large":0.386},"oxygen_affinity":{"low":0.398,"moderate":0.31,"high":0.292},"immune_strength":{"weak":0.154,"moderate":0.46,"strong":0.386},"skin_texture":{"smooth":0.312,"slightly_rough":0.374,"rough":0.314},"tail_power":{"weak":0.136,"moderate":0.472,"powerful":0.392}},"event":null},{"year":370,"population_size":500,"distribution":{"coloration":{"albino":0.096,"leucistic":0.046,"golden":0.28,"dark_brown":0.336,"melanoid":0.242},"regen_speed":{"slow":0.282,"moderate":0.376,"fast":0.198,"ultra_fast":0.144},"gill_size":{"small":0.202,"medium":0.25,"large":0.21,"extra_large":0.338},"body_size":{"tiny":0.092,"small":0.24,"medium":0.294,"large":0.374},"oxygen_affinity":{"low":0.398,"moderate":0.332,"high":0.27},"immune_strength":{"weak":0.168,"moderate":0.424,"strong":0.408},"skin_texture":{"smooth":0.284,"slightly_rough":0.386,"rough":0.33},"tail_power":{"weak":0.174,"moderate":0.452,"powerful":0.374}},"event":null},{"year":380,"population_size":500,"distribution":{"coloration":{"albino":0.102,"leucistic":0.064,"golden":0.274,"dark_brown":0.334,"melanoid":0.226},"regen_speed":{"slow":0.264,"moderate":0.372,"fast":0.202,"ultra_fast":0.162},"gill_size":{"small":0.184,"medium":0.262,"large":0.212,"extra_large":0.342},"body_size":{"tiny":0.09,"small":0.234,"medium":0.306,"large":0.37},"oxygen_affinity":{"low":0.42,"moderate":0.32,"high":0.26},"immune_strength":{"weak":0.174,"moderate":0.412,"strong":0.414},"skin_texture":{"smooth":0.322,"slightly_rough":0.342,"rough":0.336},"tail_power":{"weak":0.16,"moderate":0.438,"powerful":0.402}},"event":null},{"year":390,"population_size":500,"distribution":{"coloration":{"albino":0.114,"leucistic":0.072,"golden":0.272,"dark_brown":0.37,"melanoid":0.172},"regen_speed":{"slow":0.276,"moderate":0.362,"fast":0.204,"ultra_fast":0.158},"gill_size":{"small":0.188,"medium":0.24,"large":0.23,"extra_large":0.342},"body_size":{"tiny":0.102,"small":0.248,"medium":0.296,"large":0.354},"oxygen_affinity":{"low":0.414,"moderate":0.328,"high":0.258},"immune_strength":{"weak":0.162,"moderate":0.42,"strong":0.418},"skin_texture":{"smooth":0.318,"slightly_rough":0.334,"rough":0.348},"tail_power":{"weak":0.138,"moderate":0.426,"powerful":0.436}},"event":null},{"year":400,"population_size":500,"distribution":{"coloration":{"albino":0.096,"leucistic":0.076,"golden":0.286,"dark_brown":0.392,"melanoid":0.15},"regen_speed":{"slow":0.252,"moderate":0.34,"fast":0.224,"ultra_fast":0.184},"gill_size":{"small":0.168,"medium":0.232,"large":0.248,"extra_large":0.352},"body_size":{"tiny":0.118,"small":0.266,"medium":0.282,"large":0.334},"oxygen_affinity":{"low":0.416,"moderate":0.326,"high":0.258},"immune_strength":{"weak":0.174,"moderate":0.386,"strong":0.44},"skin_texture":{"smooth":0.306,"slightly_rough":0.338,"rough":0.356},"tail_power":{"weak":0.142,"moderate":0.45,"powerful":0.408}},"event":null},{"year":410,"population_size":500,"distribution":{"coloration":{"albino":0.102,"leucistic":0.07,"golden":0.262,"dark_brown":0.374,"melanoid":0.192},"regen_speed":{"slow":0.064,"moderate":0.274,"fast":0.336,"ultra_fast":0.326},"gill_size":{"small":0.16,"medium":0.218,"large":0.254,"extra_large":0.368},"body_size":{"tiny":0.146,"small":0.18,"medium":0.344,"large":0.33},"oxygen_affinity":{"low":0.404,"moderate":0.342,"high":0.254},"immune_strength":{"weak":0.208,"moderate":0.408,"strong":0.384},"skin_texture":{"smooth":0.278,"slightly_rough":0.34,"rough":0.382},"tail_power":{"weak":0.156,"moderate":0.444,"powerful":0.4}},"event":{"name":"Territorial Conflict","description":"Aggressive intraspecific fighting surges. Limb loss increases dramatically. Fast regenerators survive and reproduce more."}},{"year":420,"population_size":500,"distribution":{"coloration":{"albino":0.124,"leucistic":0.056,"golden":0.268,"dark_brown":0.364,"melanoid":0.188},"regen_speed":{"slow":0.082,"moderate":0.268,"fast":0.362,"ultra_fast":0.288},"gill_size":{"small":0.182,"medium":0.224,"large":0.23,"extra_large":0.364},"body_size":{"tiny":0.104,"small":0.186,"medium":0.36,"large":0.35},"oxygen_affinity":{"low":0.398,"moderate":0.338,"high":0.264},"immune_strength":{"weak":0.234,"moderate":0.372,"strong":0.394},"skin_texture":{"smooth":0.286,"slightly_rough":0.32,"rough":0.394},"tail_power":{"weak":0.168,"moderate":0.434,"powerful":0.398}},"event":null},{"year":430,"population_size":500,"distribution":{"coloration":{"albino":0.136,"leucistic":0.042,"golden":0.286,"dark_brown":0.372,"melanoid":0.164},"regen_speed":{"slow":0.076,"moderate":0.26,"fast":0.348,"ultra_fast":0.316},"gill_size":{"small":0.174,"medium":0.23,"large":0.216,"extra_large":0.38},"body_size":{"tiny":0.132,"small":0.176,"medium":0.36,"large":0.332},"oxygen_affinity":{"low":0.396,"moderate":0.322,"high":0.282},"immune_strength":{"weak":0.276,"moderate":0.33,"strong":0.394},"skin_texture":{"smooth":0.292,"slightly_rough":0.358,"rough":0.35},"tail_power":{"weak":0.184,"moderate":0.426,"powerful":0.39}},"event":null},{"year":440,"population_size":500,"distribution":{"coloration":{"albino":0.148,"leucistic":0.038,"golden":0.266,"dark_brown":0.372,"melanoid":0.176},"regen_speed":{"slow":0.086,"moderate":0.248,"fast":0.344,"ultra_fast":0.322},"gill_size":{"small":0.18,"medium":0.222,"large":0.222,"extra_large":0.376},"body_size":{"tiny":0.16,"small":0.188,"medium":0.326,"large":0.326},"oxygen_affinity":{"low":0.39,"moderate":0.344,"high":0.266},"immune_strength":{"weak":0.286,"moderate":0.296,"strong":0.418},"skin_texture":{"smooth":0.286,"slightly_rough":0.35,"rough":0.364},"tail_power":{"weak":0.22,"moderate":0.382,"powerful":0.398}},"event":null},{"year":450,"population_size":500,"distribution":{"coloration":{"albino":0.132,"leucistic":0.042,"golden":0.284,"dark_brown":0.356,"melanoid":0.186},"regen_speed":{"slow":0.072,"moderate":0.23,"fast":0.364,"ultra_fast":0.334},"gill_size":{"small":0.162,"medium":0.25,"large":0.232,"extra_large":0.356},"body_size":{"tiny":0.168,"small":0.192,"medium":0.338,"large":0.302},"oxygen_affinity":{"low":0.38,"moderate":0.366,"high":0.254},"immune_strength":{"weak":0.322,"moderate":0.292,"strong":0.386},"skin_texture":{"smooth":0.268,"slightly_rough":0.344,"rough":0.388},"tail_power":{"weak":0.29,"moderate":0.378,"powerful":0.332}},"event":null},{"year":460,"population_size":500,"distribution":{"coloration":{"albino":0.132,"leucistic":0.042,"golden":0.31,"dark_brown":0.362,"melanoid":0.154},"regen_speed":{"slow":0.086,"moderate":0.224,"fast":0.372,"ultra_fast":0.318},"gill_size":{"small":0.142,"medium":0.254,"large":0.232,"extra_large":0.372},"body_size":{"tiny":0.174,"small":0.2,"medium":0.32,"large":0.306},"oxygen_affinity":{"low":0.416,"moderate":0.356,"high":0.228},"immune_strength":{"weak":0.322,"moderate":0.282,"strong":0.396},"skin_texture":{"smooth":0.258,"slightly_rough":0.356,"rough":0.386},"tail_power":{"weak":0.288,"moderate":0.396,"powerful":0.316}},"event":null},{"year":470,"population_size":500,"distribution":{"coloration":{"albino":0.13,"leucistic":0.05,"golden":0.298,"dark_brown":0.354,"melanoid":0.168},"regen_speed":{"slow":0.104,"moderate":0.254,"fast":0.35,"ultra_fast":0.292},"gill_size":{"small":0.148,"medium":0.258,"large":0.226,"extra_large":0.368},"body_size":{"tiny":0.16,"small":0.222,"medium":0.314,"large":0.304},"oxygen_affinity":{"low":0.412,"moderate":0.366,"high":0.222},"immune_strength":{"weak":0.31,"moderate":0.274,"strong":0.416},"skin_texture":{"smooth":0.254,"slightly_rough":0.382,"rough":0.364},"tail_power":{"weak":0.26,"moderate":0.424,"powerful":0.316}},"event":null},{"year":480,"population_size":500,"distribution":{"coloration":{"albino":0.134,"leucistic":0.046,"golden":0.312,"dark_brown":0.37,"melanoid":0.138},"regen_speed":{"slow":0.094,"moderate":0.258,"fast":0.336,"ultra_fast":0.312},"gill_size":{"small":0.154,"medium":0.22,"large":0.244,"extra_large":0.382},"body_size":{"tiny":0.152,"small":0.194,"medium":0.34,"large":0.314},"oxygen_affinity":{"low":0.388,"moderate":0.364,"high":0.248},"immune_strength":{"weak":0.354,"moderate":0.232,"strong":0.414},"skin_texture":{"smooth":0.268,"slightly_rough":0.358,"rough":0.374},"tail_power":{"weak":0.268,"moderate":0.406,"powerful":0.326}},"event":null},{"year":490,"population_size":500,"distribution":{"coloration":{"albino":0.124,"leucistic":0.052,"golden":0.294,"dark_brown":0.406,"melanoid":0.124},"regen_speed":{"slow":0.096,"moderate":0.24,"fast":0.316,"ultra_fast":0.348},"gill_size":{"small":0.168,"medium":0.226,"large":0.256,"extra_large":0.35},"body_size":{"tiny":0.174,"small":0.208,"medium":0.354,"large":0.264},"oxygen_affinity":{"low":0.378,"moderate":0.366,"high":0.256},"immune_strength":{"weak":0.388,"moderate":0.192,"strong":0.42},"skin_texture":{"smooth":0.264,"slightly_rough":0.366,"rough":0.37},"tail_power":{"weak":0.252,"moderate":0.408,"powerful":0.34}},"event":null},{"year":500,"population_size":500,"distribution":{"coloration":{"albino":0.13,"leucistic":0.042,"golden":0.284,"dark_brown":0.402,"melanoid":0.142},"regen_speed":{"slow":0.082,"moderate":0.232,"fast":0.342,"ultra_fast":0.344},"gill_size":{"small":0.176,"medium":0.202,"large":0.264,"extra_large":0.358},"body_size":{"tiny":0.174,"small":0.208,"medium":0.364,"large":0.254},"oxygen_affinity":{"low":0.384,"moderate":0.35,"high":0.266},"immune_strength":{"weak":0.38,"moderate":0.222,"strong":0.398},"skin_texture":{"smooth":0.256,"slightly_rough":0.364,"rough":0.38},"tail_power":{"weak":0.278,"moderate":0.382,"powerful":0.34}},"event":null},{"year":510,"population_size":500,"distribution":{"coloration":{"albino":0.154,"leucistic":0.06,"golden":0.262,"dark_brown":0.352,"melanoid":0.172},"regen_speed":{"slow":0.078,"moderate":0.214,"fast":0.34,"ultra_fast":0.368},"gill_size":{"small":0.148,"medium":0.198,"large":0.284,"extra_large":0.37},"body_size":{"tiny":0.21,"small":0.21,"medium":0.374,"large":0.206},"oxygen_affinity":{"low":0.266,"moderate":0.272,"high":0.462},"immune_strength":{"weak":0.024,"moderate":0.21,"strong":0.766},"skin_texture":{"smooth":0.256,"slightly_rough":0.448,"rough":0.296},"tail_power":{"weak":0.288,"moderate":0.434,"powerful":0.278}},"event":{"name":"Industrial Runoff","description":"Contamination event. Dissolved oxygen drops sharply. Strong immunity and high O2 affinity prove critical for survival."}},{"year":520,"population_size":500,"distribution":{"coloration":{"albino":0.15,"leucistic":0.06,"golden":0.27,"dark_brown":0.346,"melanoid":0.174},"regen_speed":{"slow":0.08,"moderate":0.196,"fast":0.372,"ultra_fast":0.352},"gill_size":{"small":0.17,"medium":0.198,"large":0.256,"extra_large":0.376},"body_size":{"tiny":0.23,"small":0.2,"medium":0.346,"large":0.224},"oxygen_affinity":{"low":0.234,"moderate":0.276,"high":0.49},"immune_strength":{"weak":0.02,"moderate":0.24,"strong":0.74},"skin_texture":{"smooth":0.302,"slightly_rough":0.416,"rough":0.282},"tail_power":{"weak":0.302,"moderate":0.404,"powerful":0.294}},"event":null},{"year":530,"population_size":500,"distribution":{"coloration":{"albino":0.14,"leucistic":0.088,"golden":0.252,"dark_brown":0.334,"melanoid":0.186},"regen_speed":{"slow":0.112,"moderate":0.196,"fast":0.296,"ultra_fast":0.396},"gill_size":{"small":0.18,"medium":0.218,"large":0.234,"extra_large":0.368},"body_size":{"tiny":0.22,"small":0.212,"medium":0.346,"large":0.222},"oxygen_affinity":{"low":0.252,"moderate":0.236,"high":0.512},"immune_strength":{"weak":0.034,"moderate":0.226,"strong":0.74},"skin_texture":{"smooth":0.316,"slightly_rough":0.406,"rough":0.278},"tail_power":{"weak":0.338,"moderate":0.402,"powerful":0.26}},"event":null},{"year":540,"population_size":500,"distribution":{"coloration":{"albino":0.15,"leucistic":0.086,"golden":0.28,"dark_brown":0.31,"melanoid":0.174},"regen_speed":{"slow":0.118,"moderate":0.196,"fast":0.3,"ultra_fast":0.386},"gill_size":{"small":0.16,"medium":0.218,"large":0.282,"extra_large":0.34},"body_size":{"tiny":0.178,"small":0.222,"medium":0.366,"large":0.234},"oxygen_affinity":{"low":0.282,"moderate":0.224,"high":0.494},"immune_strength":{"weak":0.054,"moderate":0.224,"strong":0.722},"skin_texture":{"smooth":0.282,"slightly_rough":0.448,"rough":0.27},"tail_power":{"weak":0.324,"moderate":0.414,"powerful":0.262}},"event":null},{"year":550,"population_size":500,"distribution":{"coloration":{"albino":0.176,"leucistic":0.064,"golden":0.254,"dark_brown":0.338,"melanoid":0.168},"regen_speed":{"slow":0.11,"moderate":0.19,"fast":0.316,"ultra_fast":0.384},"gill_size":{"small":0.138,"medium":0.226,"large":0.31,"extra_large":0.326},"body_size":{"tiny":0.152,"small":0.228,"medium":0.376,"large":0.244},"oxygen_affinity":{"low":0.288,"moderate":0.23,"high":0.482},"immune_strength":{"weak":0.07,"moderate":0.206,"strong":0.724},"skin_texture":{"smooth":0.296,"slightly_rough":0.458,"rough":0.246},"tail_power":{"weak":0.358,"moderate":0.398,"powerful":0.244}},"event":null},{"year":560,"population_size":500,"distribution":{"coloration":{"albino":0.2,"leucistic":0.074,"golden":0.238,"dark_brown":0.296,"melanoid":0.192},"regen_speed":{"slow":0.142,"moderate":0.176,"fast":0.322,"ultra_fast":0.36},"gill_size":{"small":0.136,"medium":0.272,"large":0.288,"extra_large":0.304},"body_size":{"tiny":0.154,"small":0.226,"medium":0.4,"large":0.22},"oxygen_affinity":{"low":0.274,"moderate":0.228,"high":0.498},"immune_strength":{"weak":0.074,"moderate":0.192,"strong":0.734},"skin_texture":{"smooth":0.256,"slightly_rough":0.488,"rough":0.256},"tail_power":{"weak":0.336,"moderate":0.384,"powerful":0.28}},"event":null},{"year":570,"population_size":500,"distribution":{"coloration":{"albino":0.194,"leucistic":0.064,"golden":0.21,"dark_brown":0.334,"melanoid":0.198},"regen_speed":{"slow":0.12,"moderate":0.198,"fast":0.322,"ultra_fast":0.36},"gill_size":{"small":0.152,"medium":0.262,"large":0.286,"extra_large":0.3},"body_size":{"tiny":0.156,"small":0.19,"medium":0.42,"large":0.234},"oxygen_affinity":{"low":0.27,"moderate":0.214,"high":0.516},"immune_strength":{"weak":0.096,"moderate":0.222,"strong":0.682},"skin_texture":{"smooth":0.264,"slightly_rough":0.5,"rough":0.236},"tail_power":{"weak":0.336,"moderate":0.366,"powerful":0.298}},"event":null},{"year":580,"population_size":500,"distribution":{"coloration":{"albino":0.196,"leucistic":0.086,"golden":0.194,"dark_brown":0.336,"melanoid":0.188},"regen_speed":{"slow":0.138,"moderate":0.198,"fast":0.292,"ultra_fast":0.372},"gill_size":{"small":0.138,"medium":0.276,"large":0.282,"extra_large":0.304},"body_size":{"tiny":0.156,"small":0.214,"medium":0.416,"large":0.214},"oxygen_affinity":{"low":0.25,"moderate":0.224,"high":0.526},"immune_strength":{"weak":0.094,"moderate":0.25,"strong":0.656},"skin_texture":{"smooth":0.27,"slightly_rough":0.5,"rough":0.23},"tail_power":{"weak":0.37,"moderate":0.334,"powerful":0.296}},"event":null},{"year":590,"population_size":500,"distribution":{"coloration":{"albino":0.198,"leucistic":0.096,"golden":0.206,"dark_brown":0.34,"melanoid":0.16},"regen_speed":{"slow":0.134,"moderate":0.182,"fast":0.29,"ultra_fast":0.394},"gill_size":{"small":0.142,"medium":0.3,"large":0.256,"extra_large":0.302},"body_size":{"tiny":0.166,"small":0.228,"medium":0.398,"large":0.208},"oxygen_affinity":{"low":0.28,"moderate":0.258,"high":0.462},"immune_strength":{"weak":0.118,"moderate":0.2,"strong":0.682},"skin_texture":{"smooth":0.266,"slightly_rough":0.452,"rough":0.282},"tail_power":{"weak":0.394,"moderate":0.344,"powerful":0.262}},"event":null},{"year":600,"population_size":500,"distribution":{"coloration":{"albino":0.174,"leucistic":0.146,"golden":0.216,"dark_brown":0.314,"melanoid":0.15},"regen_speed":{"slow":0.158,"moderate":0.16,"fast":0.32,"ultra_fast":0.362},"gill_size":{"small":0.022,"medium":0.25,"large":0.258,"extra_large":0.47},"body_size":{"tiny":0.16,"small":0.24,"medium":0.386,"large":0.214},"oxygen_affinity":{"low":0.07,"moderate":0.25,"high":0.68},"immune_strength":{"weak":0.134,"moderate":0.196,"strong":0.67},"skin_texture":{"smooth":0.274,"slightly_rough":0.396,"rough":0.33},"tail_power":{"weak":0.45,"moderate":0.33,"powerful":0.22}},"event":{"name":"Drought","description":"Severe drought reduces water levels and oxygen. Large gills and high oxygen affinity become critical for survival."}},{"year":610,"population_size":500,"distribution":{"coloration":{"albino":0.172,"leucistic":0.144,"golden":0.196,"dark_brown":0.314,"melanoid":0.174},"regen_speed":{"slow":0.162,"moderate":0.164,"fast":0.302,"ultra_fast":0.372},"gill_size":{"small":0.032,"medium":0.228,"large":0.254,"extra_large":0.486},"body_size":{"tiny":0.162,"small":0.23,"medium":0.388,"large":0.22},"oxygen_affinity":{"low":0.084,"moderate":0.22,"high":0.696},"immune_strength":{"weak":0.132,"moderate":0.188,"strong":0.68},"skin_texture":{"smooth":0.292,"slightly_rough":0.41,"rough":0.298},"tail_power":{"weak":0.41,"moderate":0.35,"powerful":0.24}},"event":null},{"year":620,"population_size":500,"distribution":{"coloration":{"albino":0.186,"leucistic":0.138,"golden":0.204,"dark_brown":0.306,"melanoid":0.166},"regen_speed":{"slow":0.166,"moderate":0.176,"fast":0.262,"ultra_fast":0.396},"gill_size":{"small":0.038,"medium":0.238,"large":0.282,"extra_large":0.442},"body_size":{"tiny":0.178,"small":0.234,"medium":0.374,"large":0.214},"oxygen_affinity":{"low":0.096,"moderate":0.214,"high":0.69},"immune_strength":{"weak":0.158,"moderate":0.194,"strong":0.648},"skin_texture":{"smooth":0.26,"slightly_rough":0.436,"rough":0.304},"tail_power":{"weak":0.428,"moderate":0.326,"powerful":0.246}},"event":null},{"year":630,"population_size":500,"distribution":{"coloration":{"albino":0.182,"leucistic":0.176,"golden":0.222,"dark_brown":0.26,"melanoid":0.16},"regen_speed":{"slow":0.166,"moderate":0.19,"fast":0.28,"ultra_fast":0.364},"gill_size":{"small":0.05,"medium":0.26,"large":0.248,"extra_large":0.442},"body_size":{"tiny":0.196,"small":0.242,"medium":0.366,"large":0.196},"oxygen_affinity":{"low":0.1,"moderate":0.21,"high":0.69},"immune_strength":{"weak":0.162,"moderate":0.204,"strong":0.634},"skin_texture":{"smooth":0.266,"slightly_rough":0.402,"rough":0.332},"tail_power":{"weak":0.42,"moderate":0.348,"powerful":0.232}},"event":null},{"year":640,"population_size":500,"distribution":{"coloration":{"albino":0.192,"leucistic":0.18,"golden":0.214,"dark_brown":0.28,"melanoid":0.134},"regen_speed":{"slow":0.208,"moderate":0.222,"fast":0.266,"ultra_fast":0.304},"gill_size":{"small":0.044,"medium":0.27,"large":0.22,"extra_large":0.466},"body_size":{"tiny":0.194,"small":0.258,"medium":0.356,"large":0.192},"oxygen_affinity":{"low":0.11,"moderate":0.174,"high":0.716},"immune_strength":{"weak":0.188,"moderate":0.23,"strong":0.582},"skin_texture":{"smooth":0.252,"slightly_rough":0.398,"rough":0.35},"tail_power":{"weak":0.394,"moderate":0.388,"powerful":0.218}},"event":null},{"year":650,"population_size":500,"distribution":{"coloration":{"albino":0.168,"leucistic":0.18,"golden":0.264,"dark_brown":0.246,"melanoid":0.142},"regen_speed":{"slow":0.212,"moderate":0.208,"fast":0.276,"ultra_fast":0.304},"gill_size":{"small":0.07,"medium":0.254,"large":0.252,"extra_large":0.424},"body_size":{"tiny":0.198,"small":0.268,"medium":0.344,"large":0.19},"oxygen_affinity":{"low":0.108,"moderate":0.188,"high":0.704},"immune_strength":{"weak":0.204,"moderate":0.232,"strong":0.564},"skin_texture":{"smooth":0.248,"slightly_rough":0.388,"rough":0.364},"tail_power":{"weak":0.398,"moderate":0.374,"powerful":0.228}},"event":null},{"year":660,"population_size":500,"distribution":{"coloration":{"albino":0.174,"leucistic":0.204,"golden":0.228,"dark_brown":0.258,"melanoid":0.136},"regen_speed":{"slow":0.18,"moderate":0.222,"fast":0.28,"ultra_fast":0.318},"gill_size":{"small":0.084,"medium":0.256,"large":0.248,"extra_large":0.412},"body_size":{"tiny":0.198,"small":0.28,"medium":0.364,"large":0.158},"oxygen_affinity":{"low":0.118,"moderate":0.184,"high":0.698},"immune_strength":{"weak":0.21,"moderate":0.252,"strong":0.538},"skin_texture":{"smooth":0.242,"slightly_rough":0.384,"rough":0.374},"tail_power":{"weak":0.406,"moderate":0.37,"powerful":0.224}},"event":null},{"year":670,"population_size":500,"distribution":{"coloration":{"albino":0.186,"leucistic":0.182,"golden":0.26,"dark_brown":0.248,"melanoid":0.124},"regen_speed":{"slow":0.172,"moderate":0.226,"fast":0.252,"ultra_fast":0.35},"gill_size":{"small":0.118,"medium":0.22,"large":0.22,"extra_large":0.442},"body_size":{"tiny":0.202,"small":0.278,"medium":0.372,"large":0.148},"oxygen_affinity":{"low":0.146,"moderate":0.166,"high":0.688},"immune_strength":{"weak":0.198,"moderate":0.276,"strong":0.526},"skin_texture":{"smooth":0.258,"slightly_rough":0.396,"rough":0.346},"tail_power":{"weak":0.396,"moderate":0.344,"powerful":0.26}},"event":null},{"year":680,"population_size":500,"distribution":{"coloration":{"albino":0.194,"leucistic":0.204,"golden":0.268,"dark_brown":0.216,"melanoid":0.118},"regen_speed":{"slow":0.168,"moderate":0.244,"fast":0.228,"ultra_fast":0.36},"gill_size":{"small":0.106,"medium":0.24,"large":0.258,"extra_large":0.396},"body_size":{"tiny":0.156,"small":0.302,"medium":0.37,"large":0.172},"oxygen_affinity":{"low":0.162,"moderate":0.182,"high":0.656},"immune_strength":{"weak":0.246,"moderate":0.26,"strong":0.494},"skin_texture":{"smooth":0.254,"slightly_rough":0.394,"rough":0.352},"tail_power":{"weak":0.392,"moderate":0.346,"powerful":0.262}},"event":null},{"year":690,"population_size":500,"distribution":{"coloration":{"albino":0.212,"leucistic":0.22,"golden":0.256,"dark_brown":0.178,"melanoid":0.134},"regen_speed":{"slow":0.15,"moderate":0.256,"fast":0.24,"ultra_fast":0.354},"gill_size":{"small":0.12,"medium":0.238,"large":0.272,"extra_large":0.37},"body_size":{"tiny":0.148,"small":0.274,"medium":0.402,"large":0.176},"oxygen_affinity":{"low":0.154,"moderate":0.19,"high":0.656},"immune_strength":{"weak":0.28,"moderate":0.242,"strong":0.478},"skin_texture":{"smooth":0.262,"slightly_rough":0.424,"rough":0.314},"tail_power":{"weak":0.346,"moderate":0.374,"powerful":0.28}},"event":null},{"year":700,"population_size":500,"distribution":{"coloration":{"albino":0.24,"leucistic":0.21,"golden":0.252,"dark_brown":0.168,"melanoid":0.13},"regen_speed":{"slow":0.172,"moderate":0.264,"fast":0.194,"ultra_fast":0.37},"gill_size":{"small":0.118,"medium":0.266,"large":0.24,"extra_large":0.376},"body_size":{"tiny":0.142,"small":0.26,"medium":0.404,"large":0.194},"oxygen_affinity":{"low":0.162,"moderate":0.19,"high":0.648},"immune_strength":{"weak":0.292,"moderate":0.218,"strong":0.49},"skin_texture":{"smooth":0.24,"slightly_rough":0.414,"rough":0.346},"tail_power":{"weak":0.342,"moderate":0.378,"powerful":0.28}},"event":null},{"year":710,"population_size":500,"distribution":{"coloration":{"albino":0.26,"leucistic":0.222,"golden":0.23,"dark_brown":0.17,"melanoid":0.118},"regen_speed":{"slow":0.168,"moderate":0.29,"fast":0.202,"ultra_fast":0.34},"gill_size":{"small":0.134,"medium":0.268,"large":0.254,"extra_large":0.344},"body_size":{"tiny":0.242,"small":0.4,"medium":0.334,"large":0.024},"oxygen_affinity":{"low":0.184,"moderate":0.188,"high":0.628},"immune_strength":{"weak":0.302,"moderate":0.188,"strong":0.51},"skin_texture":{"smooth":0.244,"slightly_rough":0.392,"rough":0.364},"tail_power":{"weak":0.336,"moderate":0.382,"powerful":0.282}},"event":{"name":"Human Harvesting","description":"Researchers collect large specimens for study. Smaller axolotls survive and reproduce at much higher rates."}},{"year":720,"population_size":500,"distribution":{"coloration":{"albino":0.272,"leucistic":0.242,"golden":0.238,"dark_brown":0.146,"melanoid":0.102},"regen_speed":{"slow":0.166,"moderate":0.29,"fast":0.206,"ultra_fast":0.338},"gill_size":{"small":0.134,"medium":0.25,"large":0.262,"extra_large":0.354},"body_size":{"tiny":0.242,"small":0.422,"medium":0.29,"large":0.046},"oxygen_affinity":{"low":0.194,"moderate":0.218,"high":0.588},"immune_strength":{"weak":0.266,"moderate":0.238,"strong":0.496},"skin_texture":{"smooth":0.236,"slightly_rough":0.39,"rough":0.374},"tail_power":{"weak":0.318,"moderate":0.362,"powerful":0.32}},"event":null},{"year":730,"population_size":500,"distribution":{"coloration":{"albino":0.286,"leucistic":0.254,"golden":0.208,"dark_brown":0.13,"melanoid":0.122},"regen_speed":{"slow":0.15,"moderate":0.28,"fast":0.222,"ultra_fast":0.348},"gill_size":{"small":0.134,"medium":0.25,"large":0.262,"extra_large":0.354},"body_size":{"tiny":0.268,"small":0.41,"medium":0.282,"large":0.04},"oxygen_affinity":{"low":0.204,"moderate":0.23,"high":0.566},"immune_strength":{"weak":0.294,"moderate":0.238,"strong":0.468},"skin_texture":{"smooth":0.236,"slightly_rough":0.38,"rough":0.384},"tail_power":{"weak":0.284,"moderate":0.376,"powerful":0.34}},"event":null},{"year":740,"population_size":500,"distribution":{"coloration":{"albino":0.284,"leucistic":0.224,"golden":0.234,"dark_brown":0.138,"melanoid":0.12},"regen_speed":{"slow":0.148,"moderate":0.226,"fast":0.232,"ultra_fast":0.394},"gill_size":{"small":0.114,"medium":0.222,"large":0.246,"extra_large":0.418},"body_size":{"tiny":0.264,"small":0.406,"medium":0.276,"large":0.054},"oxygen_affinity":{"low":0.208,"moderate":0.264,"high":0.528},"immune_strength":{"weak":0.282,"moderate":0.254,"strong":0.464},"skin_texture":{"smooth":0.234,"slightly_rough":0.396,"rough":0.37},"tail_power":{"weak":0.306,"moderate":0.37,"powerful":0.324}},"event":null},{"year":750,"population_size":500,"distribution":{"coloration":{"albino":0.322,"leucistic":0.222,"golden":0.214,"dark_brown":0.14,"melanoid":0.102},"regen_speed":{"slow":0.16,"moderate":0.202,"fast":0.21,"ultra_fast":0.428},"gill_size":{"small":0.108,"medium":0.21,"large":0.276,"extra_large":0.406},"body_size":{"tiny":0.268,"small":0.388,"medium":0.282,"large":0.062},"oxygen_affinity":{"low":0.21,"moderate":0.296,"high":0.494},"immune_strength":{"weak":0.282,"moderate":0.248,"strong":0.47},"skin_texture":{"smooth":0.216,"slightly_rough":0.396,"rough":0.388},"tail_power":{"weak":0.322,"moderate":0.364,"powerful":0.314}},"event":null},{"year":760,"population_size":500,"distribution":{"coloration":{"albino":0.352,"leucistic":0.196,"golden":0.2,"dark_brown":0.152,"melanoid":0.1},"regen_speed":{"slow":0.138,"moderate":0.206,"fast":0.218,"ultra_fast":0.438},"gill_size":{"small":0.098,"medium":0.196,"large":0.258,"extra_large":0.448},"body_size":{"tiny":0.246,"small":0.366,"medium":0.318,"large":0.07},"oxygen_affinity":{"low":0.178,"moderate":0.312,"high":0.51},"immune_strength":{"weak":0.302,"moderate":0.238,"strong":0.46},"skin_texture":{"smooth":0.236,"slightly_rough":0.374,"rough":0.39},"tail_power":{"weak":0.264,"moderate":0.388,"powerful":0.348}},"event":null},{"year":770,"population_size":500,"distribution":{"coloration":{"albino":0.316,"leucistic":0.202,"golden":0.208,"dark_brown":0.158,"melanoid":0.116},"regen_speed":{"slow":0.132,"moderate":0.226,"fast":0.208,"ultra_fast":0.434},"gill_size":{"small":0.112,"medium":0.208,"large":0.244,"extra_large":0.436},"body_size":{"tiny":0.264,"small":0.364,"medium":0.292,"large":0.08},"oxygen_affinity":{"low":0.214,"moderate":0.314,"high":0.472},"immune_strength":{"weak":0.292,"moderate":0.236,"strong":0.472},"skin_texture":{"smooth":0.246,"slightly_rough":0.364,"rough":0.39},"tail_power":{"weak":0.236,"moderate":0.404,"powerful":0.36}},"event":null},{"year":780,"population_size":500,"distribution":{"coloration":{"albino":0.322,"leucistic":0.198,"golden":0.22,"dark_brown":0.126,"melanoid":0.134},"regen_speed":{"slow":0.134,"moderate":0.236,"fast":0.218,"ultra_fast":0.412},"gill_size":{"small":0.104,"medium":0.216,"large":0.25,"extra_large":0.43},"body_size":{"tiny":0.272,"small":0.316,"medium":0.328,"large":0.084},"oxygen_affinity":{"low":0.21,"moderate":0.324,"high":0.466},"immune_strength":{"weak":0.306,"moderate":0.256,"strong":0.438},"skin_texture":{"smooth":0.24,"slightly_rough":0.38,"rough":0.38},"tail_power":{"weak":0.208,"moderate":0.414,"powerful":0.378}},"event":null},{"year":790,"population_size":500,"distribution":{"coloration":{"albino":0.326,"leucistic":0.202,"golden":0.22,"dark_brown":0.134,"melanoid":0.118},"regen_speed":{"slow":0.106,"moderate":0.236,"fast":0.226,"ultra_fast":0.432},"gill_size":{"small":0.142,"medium":0.212,"large":0.242,"extra_large":0.404},"body_size":{"tiny":0.25,"small":0.31,"medium":0.368,"large":0.072},"oxygen_affinity":{"low":0.206,"moderate":0.348,"high":0.446},"immune_strength":{"weak":0.308,"moderate":0.244,"strong":0.448},"skin_texture":{"smooth":0.258,"slightly_rough":0.388,"rough":0.354},"tail_power":{"weak":0.236,"moderate":0.414,"powerful":0.35}},"event":null},{"year":800,"population_size":500,"distribution":{"coloration":{"albino":0.338,"leucistic":0.186,"golden":0.206,"dark_brown":0.146,"melanoid":0.124},"regen_speed":{"slow":0.096,"moderate":0.236,"fast":0.226,"ultra_fast":0.442},"gill_size":{"small":0.146,"medium":0.21,"large":0.252,"extra_large":0.392},"body_size":{"tiny":0.23,"small":0.294,"medium":0.386,"large":0.09},"oxygen_affinity":{"low":0.216,"moderate":0.344,"high":0.44},"immune_strength":{"weak":0.336,"moderate":0.28,"strong":0.384},"skin_texture":{"smooth":0.254,"slightly_rough":0.414,"rough":0.332},"tail_power":{"weak":0.242,"moderate":0.398,"powerful":0.36}},"event":null},{"year":810,"population_size":500,"distribution":{"coloration":{"albino":0.338,"leucistic":0.178,"golden":0.196,"dark_brown":0.162,"melanoid":0.126},"regen_speed":{"slow":0.124,"moderate":0.236,"fast":0.192,"ultra_fast":0.448},"gill_size":{"small":0.178,"medium":0.196,"large":0.236,"extra_large":0.39},"body_size":{"tiny":0.258,"small":0.306,"medium":0.376,"large":0.06},"oxygen_affinity":{"low":0.262,"moderate":0.298,"high":0.44},"immune_strength":{"weak":0.308,"moderate":0.278,"strong":0.414},"skin_texture":{"smooth":0.266,"slightly_rough":0.4,"rough":0.334},"tail_power":{"weak":0.07,"moderate":0.36,"powerful":0.57}},"event":{"name":"Flood Surge","description":"Massive floods create powerful currents. Axolotls with strong tails navigate successfully; weak swimmers are lost."}},{"year":820,"population_size":500,"distribution":{"coloration":{"albino":0.368,"leucistic":0.192,"golden":0.176,"dark_brown":0.15,"melanoid":0.114},"regen_speed":{"slow":0.13,"moderate":0.252,"fast":0.21,"ultra_fast":0.408},"gill_size":{"small":0.188,"medium":0.226,"large":0.22,"extra_large":0.366},"body_size":{"tiny":0.274,"small":0.32,"medium":0.36,"large":0.046},"oxygen_affinity":{"low":0.29,"moderate":0.256,"high":0.454},"immune_strength":{"weak":0.324,"moderate":0.282,"strong":0.394},"skin_texture":{"smooth":0.268,"slightly_rough":0.388,"rough":0.344},"tail_power":{"weak":0.084,"moderate":0.378,"powerful":0.538}},"event":null},{"year":830,"population_size":500,"distribution":{"coloration":{"albino":0.376,"leucistic":0.194,"golden":0.158,"dark_brown":0.17,"melanoid":0.102},"regen_speed":{"slow":0.126,"moderate":0.242,"fast":0.224,"ultra_fast":0.408},"gill_size":{"small":0.216,"medium":0.218,"large":0.19,"extra_large":0.376},"body_size":{"tiny":0.294,"small":0.32,"medium":0.334,"large":0.052},"oxygen_affinity":{"low":0.29,"moderate":0.266,"high":0.444},"immune_strength":{"weak":0.332,"moderate":0.27,"strong":0.398},"skin_texture":{"smooth":0.258,"slightly_rough":0.396,"rough":0.346},"tail_power":{"weak":0.08,"moderate":0.364,"powerful":0.556}},"event":null},{"year":840,"population_size":500,"distribution":{"coloration":{"albino":0.352,"leucistic":0.214,"golden":0.118,"dark_brown":0.192,"melanoid":0.124},"regen_speed":{"slow":0.118,"moderate":0.264,"fast":0.224,"ultra_fast":0.394},"gill_size":{"small":0.21,"medium":0.214,"large":0.16,"extra_large":0.416},"body_size":{"tiny":0.27,"small":0.368,"medium":0.304,"large":0.058},"oxygen_affinity":{"low":0.29,"moderate":0.256,"high":0.454},"immune_strength":{"weak":0.29,"moderate":0.274,"strong":0.436},"skin_texture":{"smooth":0.254,"slightly_rough":0.392,"rough":0.354},"tail_power":{"weak":0.1,"moderate":0.388,"powerful":0.512}},"event":null},{"year":850,"population_size":500,"distribution":{"coloration":{"albino":0.346,"leucistic":0.212,"golden":0.152,"dark_brown":0.162,"melanoid":0.128},"regen_speed":{"slow":0.11,"moderate":0.276,"fast":0.224,"ultra_fast":0.39},"gill_size":{"small":0.218,"medium":0.222,"large":0.168,"extra_large":0.392},"body_size":{"tiny":0.266,"small":0.376,"medium":0.292,"large":0.066},"oxygen_affinity":{"low":0.286,"moderate":0.274,"high":0.44},"immune_strength":{"weak":0.304,"moderate":0.282,"strong":0.414},"skin_texture":{"smooth":0.238,"slightly_rough":0.386,"rough":0.376},"tail_power":{"weak":0.096,"moderate":0.376,"powerful":0.528}},"event":null},{"year":860,"population_size":500,"distribution":{"coloration":{"albino":0.362,"leucistic":0.204,"golden":0.132,"dark_brown":0.17,"melanoid":0.132},"regen_speed":{"slow":0.116,"moderate":0.222,"fast":0.284,"ultra_fast":0.378},"gill_size":{"small":0.218,"medium":0.21,"large":0.18,"extra_large":0.392},"body_size":{"tiny":0.28,"small":0.364,"medium":0.278,"large":0.078},"oxygen_affinity":{"low":0.262,"moderate":0.304,"high":0.434},"immune_strength":{"weak":0.298,"moderate":0.282,"strong":0.42},"skin_texture":{"smooth":0.23,"slightly_rough":0.426,"rough":0.344},"tail_power":{"weak":0.104,"moderate":0.372,"powerful":0.524}},"event":null},{"year":870,"population_size":500,"distribution":{"coloration":{"albino":0.352,"leucistic":0.218,"golden":0.146,"dark_brown":0.158,"melanoid":0.126},"regen_speed":{"slow":0.11,"moderate":0.218,"fast":0.316,"ultra_fast":0.356},"gill_size":{"small":0.208,"medium":0.194,"large":0.2,"extra_large":0.398},"body_size":{"tiny":0.276,"small":0.366,"medium":0.26,"large":0.098},"oxygen_affinity":{"low":0.252,"moderate":0.316,"high":0.432},"immune_strength":{"weak":0.334,"moderate":0.29,"strong":0.376},"skin_texture":{"smooth":0.24,"slightly_rough":0.424,"rough":0.336},"tail_power":{"weak":0.142,"moderate":0.356,"powerful":0.502}},"event":null},{"year":880,"population_size":500,"distribution":{"coloration":{"albino":0.362,"leucistic":0.198,"golden":0.148,"dark_brown":0.166,"melanoid":0.126},"regen_speed":{"slow":0.122,"moderate":0.238,"fast":0.3,"ultra_fast":0.34},"gill_size":{"small":0.218,"medium":0.216,"large":0.206,"extra_large":0.36},"body_size":{"tiny":0.278,"small":0.354,"medium":0.252,"large":0.116},"oxygen_affinity":{"low":0.28,"moderate":0.31,"high":0.41},"immune_strength":{"weak":0.33,"moderate":0.288,"strong":0.382},"skin_texture":{"smooth":0.266,"slightly_rough":0.44,"rough":0.294},"tail_power":{"weak":0.124,"moderate":0.402,"powerful":0.474}},"event":null},{"year":890,"population_size":500,"distribution":{"coloration":{"albino":0.358,"leucistic":0.178,"golden":0.154,"dark_brown":0.188,"melanoid":0.122},"regen_speed":{"slow":0.096,"moderate":0.296,"fast":0.28,"ultra_fast":0.328},"gill_size":{"small":0.224,"medium":0.22,"large":0.198,"extra_large":0.358},"body_size":{"tiny":0.246,"small":0.36,"medium":0.266,"large":0.128},"oxygen_affinity":{"low":0.256,"moderate":0.316,"high":0.428},"immune_strength":{"weak":0.332,"moderate":0.286,"strong":0.382},"skin_texture":{"smooth":0.268,"slightly_rough":0.416,"rough":0.316},"tail_power":{"weak":0.132,"moderate":0.408,"powerful":0.46}},"event":null},{"year":900,"population_size":500,"distribution":{"coloration":{"albino":0.348,"leucistic":0.192,"golden":0.152,"dark_brown":0.186,"melanoid":0.122},"regen_speed":{"slow":0.12,"moderate":0.32,"fast":0.248,"ultra_fast":0.312},"gill_size":{"small":0.2,"medium":0.23,"large":0.194,"extra_large":0.376},"body_size":{"tiny":0.238,"small":0.394,"medium":0.216,"large":0.152},"oxygen_affinity":{"low":0.244,"moderate":0.324,"high":0.432},"immune_strength":{"weak":0.362,"moderate":0.284,"strong":0.354},"skin_texture":{"smooth":0.284,"slightly_rough":0.4,"rough":0.316},"tail_power":{"weak":0.16,"moderate":0.414,"powerful":0.426}},"event":null},{"year":910,"population_size":500,"distribution":{"coloration":{"albino":0.312,"leucistic":0.204,"golden":0.174,"dark_brown":0.17,"melanoid":0.14},"regen_speed":{"slow":0.088,"moderate":0.29,"fast":0.244,"ultra_fast":0.378},"gill_size":{"small":0.202,"medium":0.226,"large":0.182,"extra_large":0.39},"body_size":{"tiny":0.248,"small":0.36,"medium":0.24,"large":0.152},"oxygen_affinity":{"low":0.238,"moderate":0.318,"high":0.444},"immune_strength":{"weak":0.248,"moderate":0.31,"strong":0.442},"skin_texture":{"smooth":0.26,"slightly_rough":0.42,"rough":0.32},"tail_power":{"weak":0.16,"moderate":0.424,"powerful":0.416}},"event":{"name":"Conservation Reserve","description":"A protected zone is established. Selection pressure relaxes. The adapted population stabilizes in the protected habitat."}},{"year":920,"population_size":500,"distribution":{"coloration":{"albino":0.328,"leucistic":0.194,"golden":0.15,"dark_brown":0.198,"melanoid":0.13},"regen_speed":{"slow":0.088,"moderate":0.294,"fast":0.242,"ultra_fast":0.376},"gill_size":{"small":0.232,"medium":0.224,"large":0.17,"extra_large":0.374},"body_size":{"tiny":0.252,"small":0.374,"medium":0.232,"large":0.142},"oxygen_affinity":{"low":0.26,"moderate":0.328,"high":0.412},"immune_strength":{"weak":0.238,"moderate":0.316,"strong":0.446},"skin_texture":{"smooth":0.262,"slightly_rough":0.404,"rough":0.334},"tail_power":{"weak":0.156,"moderate":0.458,"powerful":0.386}},"event":null},{"year":930,"population_size":500,"distribution":{"coloration":{"albino":0.33,"leucistic":0.184,"golden":0.148,"dark_brown":0.226,"melanoid":0.112},"regen_speed":{"slow":0.1,"moderate":0.288,"fast":0.252,"ultra_fast":0.36},"gill_size":{"small":0.216,"medium":0.222,"large":0.16,"extra_large":0.402},"body_size":{"tiny":0.23,"small":0.388,"medium":0.23,"large":0.152},"oxygen_affinity":{"low":0.268,"moderate":0.36,"high":0.372},"immune_strength":{"weak":0.262,"moderate":0.286,"strong":0.452},"skin_texture":{"smooth":0.284,"slightly_rough":0.43,"rough":0.286},"tail_power":{"weak":0.162,"moderate":0.452,"powerful":0.386}},"event":null},{"year":940,"population_size":500,"distribution":{"coloration":{"albino":0.35,"leucistic":0.144,"golden":0.156,"dark_brown":0.226,"melanoid":0.124},"regen_speed":{"slow":0.088,"moderate":0.288,"fast":0.27,"ultra_fast":0.354},"gill_size":{"small":0.218,"medium":0.242,"large":0.176,"extra_large":0.364},"body_size":{"tiny":0.238,"small":0.406,"medium":0.234,"large":0.122},"oxygen_affinity":{"low":0.256,"moderate":0.382,"high":0.362},"immune_strength":{"weak":0.24,"moderate":0.262,"strong":0.498},"skin_texture":{"smooth":0.298,"slightly_rough":0.422,"rough":0.28},"tail_power":{"weak":0.154,"moderate":0.47,"powerful":0.376}},"event":null},{"year":950,"population_size":500,"distribution":{"coloration":{"albino":0.362,"leucistic":0.15,"golden":0.146,"dark_brown":0.212,"melanoid":0.13},"regen_speed":{"slow":0.096,"moderate":0.276,"fast":0.304,"ultra_fast":0.324},"gill_size":{"small":0.246,"medium":0.244,"large":0.2,"extra_large":0.31},"body_size":{"tiny":0.248,"small":0.396,"medium":0.216,"large":0.14},"oxygen_affinity":{"low":0.266,"moderate":0.384,"high":0.35},"immune_strength":{"weak":0.258,"moderate":0.248,"strong":0.494},"skin_texture":{"smooth":0.28,"slightly_rough":0.434,"rough":0.286},"tail_power":{"weak":0.13,"moderate":0.474,"powerful":0.396}},"event":null},{"year":960,"population_size":500,"distribution":{"coloration":{"albino":0.356,"leucistic":0.164,"golden":0.118,"dark_brown":0.208,"melanoid":0.154},"regen_speed":{"slow":0.12,"moderate":0.262,"fast":0.284,"ultra_fast":0.334},"gill_size":{"small":0.226,"medium":0.246,"large":0.196,"extra_large":0.332},"body_size":{"tiny":0.256,"small":0.414,"medium":0.2,"large":0.13},"oxygen_affinity":{"low":0.27,"moderate":0.354,"high":0.376},"immune_strength":{"weak":0.262,"moderate":0.26,"strong":0.478},"skin_texture":{"smooth":0.314,"slightly_rough":0.398,"rough":0.288},"tail_power":{"weak":0.124,"moderate":0.474,"powerful":0.402}},"event":null},{"year":970,"population_size":500,"distribution":{"coloration":{"albino":0.338,"leucistic":0.178,"golden":0.112,"dark_brown":0.232,"melanoid":0.14},"regen_speed":{"slow":0.134,"moderate":0.28,"fast":0.25,"ultra_fast":0.336},"gill_size":{"small":0.214,"medium":0.294,"large":0.206,"extra_large":0.286},"body_size":{"tiny":0.27,"small":0.418,"medium":0.186,"large":0.126},"oxygen_affinity":{"low":0.264,"moderate":0.358,"high":0.378},"immune_strength":{"weak":0.276,"moderate":0.276,"strong":0.448},"skin_texture":{"smooth":0.286,"slightly_rough":0.394,"rough":0.32},"tail_power":{"weak":0.132,"moderate":0.498,"powerful":0.37}},"event":null},{"year":980,"population_size":500,"distribution":{"coloration":{"albino":0.33,"leucistic":0.164,"golden":0.13,"dark_brown":0.226,"melanoid":0.15},"regen_speed":{"slow":0.116,"moderate":0.304,"fast":0.23,"ultra_fast":0.35},"gill_size":{"small":0.188,"medium":0.276,"large":0.21,"extra_large":0.326},"body_size":{"tiny":0.256,"small":0.392,"medium":0.206,"large":0.146},"oxygen_affinity":{"low":0.248,"moderate":0.402,"high":0.35},"immune_strength":{"weak":0.276,"moderate":0.238,"strong":0.486},"skin_texture":{"smooth":0.288,"slightly_rough":0.408,"rough":0.304},"tail_power":{"weak":0.172,"moderate":0.466,"powerful":0.362}},"event":null},{"year":990,"population_size":500,"distribution":{"coloration":{"albino":0.318,"leucistic":0.176,"golden":0.144,"dark_brown":0.22,"melanoid":0.142},"regen_speed":{"slow":0.142,"moderate":0.32,"fast":0.21,"ultra_fast":0.328},"gill_size":{"small":0.21,"medium":0.256,"large":0.202,"extra_large":0.332},"body_size":{"tiny":0.264,"small":0.412,"medium":0.184,"large":0.14},"oxygen_affinity":{"low":0.264,"moderate":0.396,"high":0.34},"immune_strength":{"weak":0.29,"moderate":0.228,"strong":0.482},"skin_texture":{"smooth":0.31,"slightly_rough":0.392,"rough":0.298},"tail_power":{"weak":0.218,"moderate":0.4,"powerful":0.382}},"event":null},{"year":1000,"population_size":500,"distribution":{"coloration":{"albino":0.308,"leucistic":0.186,"golden":0.152,"dark_brown":0.226,"melanoid":0.128},"regen_speed":{"slow":0.144,"moderate":0.292,"fast":0.236,"ultra_fast":0.328},"gill_size":{"small":0.226,"medium":0.278,"large":0.19,"extra_large":0.306},"body_size":{"tiny":0.282,"small":0.394,"medium":0.17,"large":0.154},"oxygen_affinity":{"low":0.256,"moderate":0.438,"high":0.306},"immune_strength":{"weak":0.294,"moderate":0.206,"strong":0.5},"skin_texture":{"smooth":0.342,"slightly_rough":0.366,"rough":0.292},"tail_power":{"weak":0.21,"moderate":0.386,"powerful":0.404}},"event":null}];
+const TRAIT_META = {
+  coloration:     {label:'Coloration',   keys:['albino','leucistic','golden','dark_brown','melanoid'],  colors:['#d4c9b0','#8fbc8f','#c8941a','#6b3a20','#333333']},
+  regen_speed:    {label:'Regeneration', keys:['slow','moderate','fast','ultra_fast'],                  colors:['#e8a090','#e8c870','#90c890','#2d8a5a']},
+  gill_size:      {label:'Gill Size',    keys:['small','medium','large','extra_large'],                 colors:['#b0cce0','#6aaad0','#3080b8','#1a5a8a']},
+  body_size:      {label:'Body Size',    keys:['tiny','small','medium','large'],                        colors:['#f0b8cc','#dc80a8','#b84880','#8a2050']},
+  oxygen_affinity:{label:'O2 Affinity', keys:['low','moderate','high'],                                 colors:['#e8c070','#d09030','#a06010']},
+  immune_strength:{label:'Immunity',     keys:['weak','moderate','strong'],                             colors:['#e08888','#e0b060','#60b080']},
+  skin_texture:   {label:'Skin Texture', keys:['smooth','slightly_rough','rough'],                      colors:['#a8c8d8','#60a0c0','#2878a0']},
+  tail_power:     {label:'Tail Power',   keys:['weak','moderate','powerful'],                           colors:['#c8b8d8','#9878b8','#604890']},
+};
+const TRAIT_KEYS = ['coloration','regen_speed','gill_size','body_size','oxygen_affinity','immune_strength','skin_texture','tail_power'];
+const LEFT_KEYS  = TRAIT_KEYS.slice(0,4);
+const RIGHT_KEYS = TRAIT_KEYS.slice(4);
+
+let currentIdx=0, playing=false, paused=false, playTimer=null, speedIdx=0;
+const SPEEDS=[220,110,45], SPEED_LABELS=['1x','2x','5x'];
+
+// Build trait panels
+function buildTraits(container, keys) {
+  keys.forEach(key => {
+    const d = document.createElement('div');
+    d.className = 'trait-block';
+    d.innerHTML = '<div class="trait-name">'+TRAIT_META[key].label+'</div><div id="bars-'+key+'"></div>';
+    container.appendChild(d);
+  });
+}
+buildTraits(document.getElementById('left-panel'), LEFT_KEYS);
+buildTraits(document.getElementById('right-traits'), RIGHT_KEYS);
+
+// Event list + ticks
+const eventSnaps = SIM_DATA.filter(d => d.event);
+const totalEvents = eventSnaps.length;
+const evListEl = document.getElementById('eventList');
+eventSnaps.forEach(snap => {
+  const el = document.createElement('div');
+  el.className='ev-item'; el.id='ev-'+snap.year;
+  el.innerHTML='<span class="ev-yr">'+snap.year+'</span><span class="ev-nm">'+snap.event.name+'</span>';
+  el.onclick = () => { stopPlay(); render(SIM_DATA.indexOf(snap)); };
+  evListEl.appendChild(el);
+});
+
+const evTicksEl = document.getElementById('evTicks');
+eventSnaps.forEach(snap => {
+  const t = document.createElement('div');
+  t.className='ev-tick'; t.id='tick-'+snap.year;
+  t.style.left = (snap.year/1000*100)+'%';
+  t.title = snap.event.name+' (Year '+snap.year+')';
+  t.onclick = () => { stopPlay(); render(SIM_DATA.indexOf(snap)); };
+  evTicksEl.appendChild(t);
+});
+
+// Canvas
+const canvas = document.getElementById('sim-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles=[], rippleT=0;
+
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  W=r.width; H=r.height;
+  canvas.width=Math.round(W*devicePixelRatio);
+  canvas.height=Math.round(H*devicePixelRatio);
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+
+function hexToRgb(h){const n=parseInt(h.replace('#',''),16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function rgbToHex(r,g,b){return '#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');}
+function lerpHex(a,b,t){const[ar,ag,ab]=hexToRgb(a.slice(0,7));const[br,bg,bb]=hexToRgb(b.slice(0,7));return rgbToHex(ar+(br-ar)*t,ag+(bg-ag)*t,ab+(bb-ab)*t);}
+
+class Axolotl {
+  constructor(snap) {
+    this.x  = 50+Math.random()*(W-100);
+    this.y  = 40+Math.random()*(H-80);
+    this.vx = (Math.random()-.5)*.4;
+    this.vy = (Math.random()-.5)*.25;
+    this.angle=Math.random()*Math.PI*2;
+    this.wiggle=Math.random()*Math.PI*2;
+    this.wiggleSpd=.035+Math.random()*.025;
+    this.wiggleAmt=.25+Math.random()*.35;
+    this.alpha=.72+Math.random()*.28;
+    this.sz=null; this.color=null;
+    this.targetSz=null; this.targetColor=null;
+    this.applyTraits(snap);
+    this.sz=this.targetSz; this.color=this.targetColor;
+  }
+  applyTraits(snap) {
+    const bs=snap.distribution.body_size;
+    let r=Math.random(),c=0;
+    if      (r<(c+=bs.tiny))   this.targetSz=5+Math.random()*2;
+    else if (r<(c+=bs.small))  this.targetSz=8+Math.random()*3;
+    else if (r<(c+=bs.medium)) this.targetSz=12+Math.random()*4;
+    else                       this.targetSz=16+Math.random()*5;
+
+    const col=snap.distribution.coloration;
+    r=Math.random(); c=0;
+    if      (r<(c+=col.albino))     this.targetColor='#e8dfd0';
+    else if (r<(c+=col.leucistic))  this.targetColor='#9acc9a';
+    else if (r<(c+=col.golden))     this.targetColor='#d4a830';
+    else if (r<(c+=col.dark_brown)) this.targetColor='#6b3e22';
+    else                            this.targetColor='#2e2e2e';
+  }
+  update() {
+    this.sz+=(this.targetSz-this.sz)*.015;
+    this.color=lerpHex(this.color, this.targetColor, .012);
+    this.wiggle+=this.wiggleSpd;
+    this.vx+=(Math.random()-.5)*.018;
+    this.vy+=(Math.random()-.5)*.012;
+    this.vx+=(W*.5-this.x)*.00006;
+    this.vy+=(H*.5-this.y)*.00006;
+    const spd=Math.hypot(this.vx,this.vy);
+    if(spd>.75){this.vx*=.75/spd;this.vy*=.75/spd;}
+    this.x+=this.vx; this.y+=this.vy;
+    if(this.x<30)this.vx+=.06; if(this.x>W-30)this.vx-=.06;
+    if(this.y<20)this.vy+=.06; if(this.y>H-20)this.vy-=.06;
+    if(Math.abs(this.vx)>.04||Math.abs(this.vy)>.04){
+      const ta=Math.atan2(this.vy,this.vx);
+      let da=ta-this.angle;
+      while(da>Math.PI)da-=Math.PI*2; while(da<-Math.PI)da+=Math.PI*2;
+      this.angle+=da*.08;
+    }
+  }
+  draw() {
+    const s=this.sz, wa=Math.sin(this.wiggle)*this.wiggleAmt;
+    ctx.save();
+    ctx.translate(this.x,this.y); ctx.rotate(this.angle); ctx.globalAlpha=this.alpha;
+    ctx.shadowColor='rgba(0,0,0,.07)'; ctx.shadowBlur=s*1.2; ctx.shadowOffsetY=s*.25;
+    ctx.fillStyle=this.color;
+    ctx.beginPath(); ctx.ellipse(0,0,s*1.7,s*.72,0,0,Math.PI*2); ctx.fill();
+    ctx.save();
+    ctx.translate(s*1.35,0); ctx.rotate(wa);
+    ctx.fillStyle=this.color+'aa'; ctx.shadowBlur=0;
+    ctx.beginPath(); ctx.moveTo(0,0);
+    ctx.bezierCurveTo(s*.9,-s*.55,s*1.7,-s*.25,s*2.1,0);
+    ctx.bezierCurveTo(s*1.7,s*.55,s*.9,s*.55,0,0); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle=this.color; ctx.shadowBlur=0;
+    [[-s*.75,s*.62],[-s*.15,s*.62],[-s*.75,-s*.62],[-s*.15,-s*.62]].forEach(([lx,ly])=>{
+      ctx.save(); ctx.translate(lx,ly); ctx.rotate(ly>0?.28:-.28);
+      ctx.beginPath(); ctx.ellipse(0,0,s*.2,s*.36,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+    });
+    ctx.strokeStyle='#d07888'; ctx.lineCap='round';
+    ctx.shadowBlur=s*.6; ctx.shadowColor='#d0788866';
+    [-s*1.05,-s*1.25,-s*1.45].forEach((gx,i)=>{
+      ctx.lineWidth=s*.11;
+      ctx.beginPath(); ctx.moveTo(gx,-s*.5); ctx.lineTo(gx+(i-1)*s*.14,-s*(1.05+i*.12)); ctx.stroke();
+      ctx.lineWidth=s*.065;
+      ctx.beginPath(); ctx.moveTo(gx+(i-1)*s*.07,-s*.85); ctx.lineTo(gx+(i-1)*s*.07+s*.18,-s*1.05); ctx.stroke();
+    });
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(-s*1.22,-s*.2,s*.18,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.45)'; ctx.beginPath(); ctx.arc(-s*1.16,-s*.26,s*.07,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function syncParticles(snap) {
+  const target=Math.max(8,Math.round(12+(snap.population_size/500)*48));
+  particles.forEach(p=>p.applyTraits(snap));
+  if(particles.length>target) particles.splice(target);
+  while(particles.length<target) particles.push(new Axolotl(snap));
+}
+
+function drawScene() {
+  ctx.fillStyle='#edf4f1'; ctx.fillRect(0,0,W,H);
+  rippleT+=.006;
+  ctx.strokeStyle='rgba(140,200,185,.1)'; ctx.lineWidth=1;
+  for(let i=0;i<7;i++){
+    const y=((H/7)*i+rippleT*18)%H;
+    ctx.beginPath(); ctx.moveTo(0,y);
+    for(let x=0;x<=W;x+=55) ctx.quadraticCurveTo(x+27,y+5,x+55,y);
+    ctx.stroke();
+  }
+  ctx.strokeStyle='rgba(45,106,79,.1)'; ctx.lineWidth=1.5; ctx.lineCap='round';
+  [18,36,W-18,W-36,W-54].forEach(px=>{
+    const sw=Math.sin(rippleT+px*.05)*4;
+    const ph=28+Math.abs(sw)*1.5;
+    ctx.beginPath(); ctx.moveTo(px,H); ctx.quadraticCurveTo(px+sw,H-ph*.5,px+sw*.5,H-ph); ctx.stroke();
+  });
+  particles.forEach(p=>{p.update();p.draw();});
+}
+
+// Pop chart
+const popChartEl=document.getElementById('popChart');
+const popCtx=popChartEl.getContext('2d');
+function drawPopChart(idx){
+  const pw=popChartEl.parentElement.clientWidth-4, ph=56;
+  popChartEl.width=Math.round(pw*devicePixelRatio); popChartEl.height=Math.round(ph*devicePixelRatio);
+  popChartEl.style.width=pw+'px'; popChartEl.style.height=ph+'px';
+  popCtx.scale(devicePixelRatio,devicePixelRatio);
+  popCtx.clearRect(0,0,pw,ph);
+  const p={l:4,r:4,t:4,b:12}, iw=pw-p.l-p.r, ih=ph-p.t-p.b;
+  popCtx.strokeStyle='#e0dbd2'; popCtx.lineWidth=1;
+  popCtx.beginPath(); popCtx.moveTo(p.l,p.t+ih); popCtx.lineTo(p.l+iw,p.t+ih); popCtx.stroke();
+  popCtx.beginPath();
+  SIM_DATA.forEach((d,i)=>{const x=p.l+(i/(SIM_DATA.length-1))*iw,y=p.t+ih*(1-d.population_size/500);i===0?popCtx.moveTo(x,y):popCtx.lineTo(x,y);});
+  popCtx.lineTo(p.l+iw,p.t+ih); popCtx.lineTo(p.l,p.t+ih); popCtx.closePath();
+  popCtx.fillStyle='rgba(45,106,79,.1)'; popCtx.fill();
+  popCtx.beginPath();
+  SIM_DATA.forEach((d,i)=>{const x=p.l+(i/(SIM_DATA.length-1))*iw,y=p.t+ih*(1-d.population_size/500);i===0?popCtx.moveTo(x,y):popCtx.lineTo(x,y);});
+  popCtx.strokeStyle='rgba(45,106,79,.65)'; popCtx.lineWidth=1.5; popCtx.stroke();
+  const cx=p.l+(idx/(SIM_DATA.length-1))*iw;
+  popCtx.strokeStyle='#c0392b'; popCtx.lineWidth=1; popCtx.setLineDash([3,3]);
+  popCtx.beginPath(); popCtx.moveTo(cx,p.t); popCtx.lineTo(cx,p.t+ih); popCtx.stroke();
+  popCtx.setLineDash([]);
+  popCtx.fillStyle='#9a9288'; popCtx.font='7px DM Mono'; popCtx.textAlign='center';
+  popCtx.fillText('0',p.l,ph-1); popCtx.fillText('1000',p.l+iw,ph-1);
+}
+
+function render(idx) {
+  currentIdx=idx;
+  const snap=SIM_DATA[idx];
+  document.getElementById('yearSlider').value=idx;
+  document.getElementById('h-year').textContent=snap.year;
+  document.getElementById('h-pop').textContent=snap.population_size;
+  document.getElementById('year-overlay').textContent=snap.year;
+  const evCount=SIM_DATA.slice(0,idx+1).filter(d=>d.event).length;
+  document.getElementById('h-ev').textContent=evCount+' / '+totalEvents;
+
+  const banner=document.getElementById('event-banner');
+  if(snap.event){
+    banner.className='active';
+    banner.innerHTML='<span class="ev-name">'+snap.event.name+'</span><span style="opacity:.5">&mdash;</span>'+snap.event.description;
+  } else {
+    banner.className='';
+    banner.textContent=snap.year===0?'Simulation initialized. Baseline population of 500 axolotls established.':'No selection pressure this decade. Population drifts and mutates freely.';
+  }
+
+  TRAIT_KEYS.forEach(key=>{
+    const meta=TRAIT_META[key], dist=snap.distribution[key], el=document.getElementById('bars-'+key);
+    if(!el)return; el.innerHTML='';
+    meta.keys.forEach((k,i)=>{
+      const pct=dist[k]||0;
+      el.innerHTML+='<div class="bar-row"><span class="bar-label">'+k.replace(/_/g,' ')+'</span><div class="bar-track"><div class="bar-fill" style="width:'+(pct*100).toFixed(1)+'%;background:'+meta.colors[i]+'"></div></div><span class="bar-pct">'+(pct*100).toFixed(0)+'%</span></div>';
+    });
+  });
+
+  document.querySelectorAll('.ev-item').forEach(el=>{
+    const yr=parseInt(el.id.replace('ev-',''));
+    el.classList.remove('done','now');
+    if(snap.year>yr) el.classList.add('done');
+    if(snap.year===yr&&snap.event) el.classList.add('now');
+  });
+  document.querySelectorAll('.ev-tick').forEach(el=>{
+    const yr=parseInt(el.id.replace('tick-',''));
+    el.classList.remove('done','now');
+    if(snap.year>yr) el.classList.add('done');
+    if(snap.year===yr&&snap.event) el.classList.add('now');
+  });
+
+  syncParticles(snap);
+  drawPopChart(idx);
+}
+
+// Pause overlay
+function showPause(snap){
+  paused=true;
+  document.getElementById('po-year').textContent='Year '+snap.year;
+  document.getElementById('po-name').textContent=snap.event.name;
+  document.getElementById('po-desc').textContent=snap.event.description;
+  document.getElementById('pause-overlay').classList.add('visible');
+}
+function hidePause(){
+  paused=false;
+  document.getElementById('pause-overlay').classList.remove('visible');
+}
+document.getElementById('po-btn').addEventListener('click',()=>{
+  hidePause();
+  if(playing) scheduleNext();
+});
+
+function scheduleNext(){
+  clearInterval(playTimer);
+  playTimer=setInterval(()=>{
+    if(paused)return;
+    const next=currentIdx+1;
+    if(next>=SIM_DATA.length){stopPlay();showResults();return;}
+    render(next);
+    if(SIM_DATA[next].event) showPause(SIM_DATA[next]);
+  }, SPEEDS[speedIdx]);
+}
+
+// ── Results screen ──────────────────────────────
+function showResults(){
+  const screen=document.getElementById('results-screen');
+  const body=document.getElementById('resultsBody');
+  body.innerHTML='';
+  const first=SIM_DATA[0], last=SIM_DATA[SIM_DATA.length-1];
+
+  // 1) Population over time chart
+  const popSec=document.createElement('div');
+  popSec.className='results-pop-section';
+  popSec.innerHTML='<div class="rs-title">Population Over Time</div><div class="rs-sub">Effect of each selection event on survival</div>';
+  const popCanvas=document.createElement('canvas');
+  popCanvas.style.width='100%'; popCanvas.style.height='140px'; popCanvas.style.display='block';
+  popSec.appendChild(popCanvas);
+  body.appendChild(popSec);
+
+  // Draw pop chart after layout
+  requestAnimationFrame(()=>{
+    const pw=popCanvas.parentElement.clientWidth-48, ph=140;
+    popCanvas.width=Math.round(pw*devicePixelRatio); popCanvas.height=Math.round(ph*devicePixelRatio);
+    popCanvas.style.width=pw+'px'; popCanvas.style.height=ph+'px';
+    const pc=popCanvas.getContext('2d'); pc.scale(devicePixelRatio,devicePixelRatio);
+    const pad={l:36,r:16,t:10,b:28}, iw=pw-pad.l-pad.r, ih=ph-pad.t-pad.b;
+
+    // Grid lines
+    pc.strokeStyle='#e0dbd2'; pc.lineWidth=1;
+    [0,.25,.5,.75,1].forEach(v=>{
+      const y=pad.t+ih*(1-v);
+      pc.beginPath(); pc.moveTo(pad.l,y); pc.lineTo(pad.l+iw,y); pc.stroke();
+      pc.fillStyle='#9a9288'; pc.font='8px DM Mono'; pc.textAlign='right';
+      pc.fillText(Math.round(v*500),pad.l-5,y+3);
+    });
+    // X axis labels
+    pc.fillStyle='#9a9288'; pc.textAlign='center';
+    [0,250,500,750,1000].forEach(yr=>{
+      const x=pad.l+(yr/1000)*iw;
+      pc.fillText(yr,x,ph-6);
+    });
+
+    // Event shading
+    eventSnaps.forEach(snap=>{
+      const x=pad.l+(snap.year/1000)*iw;
+      pc.strokeStyle='rgba(192,57,43,.2)'; pc.lineWidth=1; pc.setLineDash([3,3]);
+      pc.beginPath(); pc.moveTo(x,pad.t); pc.lineTo(x,pad.t+ih); pc.stroke();
+      pc.setLineDash([]);
+      pc.fillStyle='rgba(192,57,43,.7)'; pc.font='7px DM Mono'; pc.textAlign='center';
+      pc.fillText(snap.year,x,pad.t+ih+14);
+    });
+
+    // Fill
+    pc.beginPath();
+    SIM_DATA.forEach((d,i)=>{const x=pad.l+(d.year/1000)*iw,y=pad.t+ih*(1-d.population_size/500);i===0?pc.moveTo(x,y):pc.lineTo(x,y);});
+    pc.lineTo(pad.l+iw,pad.t+ih); pc.lineTo(pad.l,pad.t+ih); pc.closePath();
+    pc.fillStyle='rgba(45,106,79,.1)'; pc.fill();
+    // Line
+    pc.beginPath();
+    SIM_DATA.forEach((d,i)=>{const x=pad.l+(d.year/1000)*iw,y=pad.t+ih*(1-d.population_size/500);i===0?pc.moveTo(x,y):pc.lineTo(x,y);});
+    pc.strokeStyle='rgba(45,106,79,.8)'; pc.lineWidth=2; pc.setLineDash([]); pc.stroke();
+  });
+
+  // 2) Trait before/after grids
+  const traitsHeader=document.createElement('div');
+  traitsHeader.innerHTML='<div style="font-family:\'DM Serif Display\',serif;font-size:15px;color:var(--text);margin-bottom:4px">Trait Distributions: Start vs. End</div><div style="font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">Faded bar = Year 0 &middot; Solid bar = Year 1000</div>';
+  body.appendChild(traitsHeader);
+
+  const grid=document.createElement('div');
+  grid.className='results-traits-grid';
+
+  TRAIT_KEYS.forEach(key=>{
+    const meta=TRAIT_META[key];
+    const d0=first.distribution[key], d1=last.distribution[key];
+    const card=document.createElement('div');
+    card.className='rt-card';
+    let html='<div class="rt-card-title">'+meta.label+'</div>';
+    meta.keys.forEach((k,i)=>{
+      const p0=(d0[k]||0)*100, p1=(d1[k]||0)*100;
+      const diff=p1-p0;
+      const cls=diff>2?'up':diff<-2?'dn':'fl';
+      const sign=diff>0?'+':'';
+      html+='<div class="rt-row">';
+      html+='<span class="rt-label">'+k.replace(/_/g,' ')+'</span>';
+      html+='<div class="rt-bars">';
+      // Year 0 bar
+      html+='<div class="rt-bar-wrap"><div class="rt-bar-track"><div class="rt-bar-fill start" style="width:'+p0.toFixed(1)+'%;background:'+meta.colors[i]+'"></div></div><span class="rt-pct" style="opacity:.4">'+p0.toFixed(0)+'%</span></div>';
+      // Year 1000 bar
+      html+='<div class="rt-bar-wrap"><div class="rt-bar-track"><div class="rt-bar-fill end" style="width:'+p1.toFixed(1)+'%;background:'+meta.colors[i]+'"></div></div><span class="rt-pct">'+p1.toFixed(0)+'%</span><span class="rt-change '+cls+'">'+sign+diff.toFixed(0)+'%</span></div>';
+      html+='</div></div>';
+    });
+    card.innerHTML=html;
+    grid.appendChild(card);
+  });
+  body.appendChild(grid);
+
+  // 3) Events summary
+  const evHeader=document.createElement('div');
+  evHeader.innerHTML='<div style="font-family:\'DM Serif Display\',serif;font-size:15px;color:var(--text);margin-bottom:4px">Selection Events</div><div style="font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">'+eventSnaps.length+' events shaped this population over 1,000 years</div>';
+  body.appendChild(evHeader);
+
+  const evGrid=document.createElement('div');
+  evGrid.className='results-events-row';
+  eventSnaps.forEach(snap=>{
+    const c=document.createElement('div');
+    c.className='rev-card';
+    c.innerHTML='<div class="rev-year">Year '+snap.year+'</div><div class="rev-name">'+snap.event.name+'</div><div class="rev-desc">'+snap.event.description+'</div>';
+    evGrid.appendChild(c);
+  });
+  body.appendChild(evGrid);
+
+  // Spacer
+  const spacer=document.createElement('div');
+  spacer.style.height='16px';
+  body.appendChild(spacer);
+
+  screen.classList.add('visible');
+}
+
+document.getElementById('resultsClose').addEventListener('click',()=>{
+  document.getElementById('results-screen').classList.remove('visible');
+});
+
+
+function stopPlay(){
+  clearInterval(playTimer); playing=false; hidePause();
+  document.getElementById('playBtn').textContent='Play';
+  document.getElementById('playBtn').classList.remove('active');
+}
+
+const slider=document.getElementById('yearSlider');
+slider.max=SIM_DATA.length-1;
+slider.addEventListener('input',()=>{stopPlay();render(parseInt(slider.value));});
+
+document.getElementById('playBtn').addEventListener('click',()=>{
+  if(playing){stopPlay();}
+  else{
+    playing=true;
+    document.getElementById('playBtn').textContent='Pause';
+    document.getElementById('playBtn').classList.add('active');
+    if(currentIdx>=SIM_DATA.length-1)render(0);
+    scheduleNext();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click',()=>{stopPlay();render(0);});
+document.getElementById('speedBtn').addEventListener('click',()=>{
+  speedIdx=(speedIdx+1)%SPEEDS.length;
+  document.getElementById('speedBtn').textContent=SPEED_LABELS[speedIdx];
+  if(playing)scheduleNext();
+});
+
+function loop(){drawScene();requestAnimationFrame(loop);}
+resize();
+window.addEventListener('resize',()=>{resize();syncParticles(SIM_DATA[currentIdx]);});
+render(0);
+loop();
+</script>
+</body>
+</html>
